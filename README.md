@@ -16,6 +16,9 @@ A collection of games by nomadongho. Each game is located under the `games/` fol
 | [games/Game8](games/Game8/) | Frequency Lock | Adjust 7 coupled equalizer bars to match targets |
 | [games/Game9](games/Game9/) | Gravity Maze | Flip gravity to slide a ball, collect gems, reach the exit |
 | [games/Runner](games/Runner/) | Wall Runner | A fast-paced runner game dodging obstacles |
+| [games/Game10](games/Game10/) | Lumino 💡 | Place mirrors to route colored light beams to matching receivers |
+| [games/Game11](games/Game11/) | Swap Path 🏹 | Swap arrows on a grid to guide a walker through every star |
+| [games/Game12](games/Game12/) | Untangle 🕸️ | Drag nodes to eliminate all edge crossings in a tangled graph |
 
 ## How to Play
 

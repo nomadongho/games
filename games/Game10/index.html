@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Lumino</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Courier New', Courier, monospace;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      overflow: hidden;
+    }
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    #hud {
+      width: 100%; max-width: 430px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 10px;
+      color: #9ca3af; font-size: clamp(11px, 2.8vw, 14px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    canvas { display: block; cursor: pointer; border-radius: 10px; }
+    #hintBox {
+      font-size: clamp(10px, 2.6vw, 12px); color: #6b7280;
+      text-align: center; max-width: 360px; padding: 2px 8px; min-height: 18px;
+    }
+    #btns { display: flex; gap: 10px; }
+    .ibtn {
+      font-family: inherit; font-size: clamp(11px, 2.8vw, 13px);
+      background: #1a1a2e; color: #9ca3af;
+      border: 1px solid #3d3d6e; border-radius: 99px;
+      padding: 7px 16px; cursor: pointer;
+    }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; margin-top: 2px; }
+    a#back:hover { color: #9ca3af; }
+    .ov {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 24px;
+      background: rgba(6,6,18,0.93); z-index: 10;
+    }
+    .ov h1 {
+      font-size: clamp(26px, 8vw, 46px); color: #a78bfa;
+      text-shadow: 0 0 24px #a78bfa; letter-spacing: 4px; text-align: center;
+    }
+    .ov p {
+      font-size: clamp(12px, 3vw, 14px); color: rgba(255,255,255,0.65);
+      text-align: center; line-height: 1.85; max-width: 300px;
+    }
+    .obtn {
+      font-family: inherit; font-size: clamp(13px, 3.5vw, 15px);
+      color: #050510; background: #a78bfa;
+      border: none; border-radius: 999px;
+      padding: 10px 32px; letter-spacing: 2px; cursor: pointer;
+      animation: pb 1.4s ease-in-out infinite;
+    }
+    @keyframes pb { 0%,100%{box-shadow:0 0 12px #a78bfa88}50%{box-shadow:0 0 28px #a78bfacc} }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>Level <span id="lvlNum">1</span> / 8</div>
+    <div>Mirrors <span id="mUsed">0</span> / <span id="mMax">—</span></div>
+  </div>
+  <canvas id="c"></canvas>
+  <div id="hintBox"></div>
+  <div id="btns">
+    <button class="ibtn" id="resetBtn">&#8635; Reset</button>
+  </div>
+  <a id="back" href="../../index.html">&#8592; Back to Games</a>
+</div>
+
+<div class="ov" id="titleScr">
+  <h1>LUMINO</h1>
+  <p>Colored beams enter the crystal chamber.<br><br>
+     Tap empty cells to place mirrors (/ or \).<br>
+     Tap again to rotate &middot; tap once more to remove.<br><br>
+     Route every beam to its matching receiver.<br><br>
+     <strong style="color:#c4b5fd">&#9679;</strong> Emitter &nbsp;&nbsp;
+     <strong style="color:#c4b5fd">&#9711;</strong> Receiver
+  </p>
+  <button class="obtn" id="startBtn">&#9654; Begin</button>
+</div>
+
+<div class="ov hidden" id="clearScr">
+  <h1 style="color:#34d399;text-shadow:0 0 24px #34d399;">CLEAR!</h1>
+  <p id="clearMsg"></p>
+  <button class="obtn" style="background:#34d399;animation:none" id="nextBtn">Next Level &#8594;</button>
+</div>
+
+<div class="ov hidden" id="victScr">
+  <h1 style="color:#fbbf24;text-shadow:0 0 24px #fbbf24;">ALL LIT!</h1>
+  <p>You illuminated every level!</p>
+  <button class="obtn" style="background:#fbbf24;animation:none" id="playAgainBtn">Play Again</button>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+const SIZE = Math.min(window.innerWidth - 16, window.innerHeight - 160, 420);
+const CELL  = Math.floor(SIZE / 7);
+const W     = CELL * 7;
+canvas.width  = W;
+canvas.height = W;
+canvas.style.width  = W + 'px';
+canvas.style.height = W + 'px';
+
+// ── Level definitions ──────────────────────────────────────────
+// cells 5x5: 0=empty 1=wall 2=fixed-/ 3=fixed-backslash
+// emitters/receivers: {side:'L'|'R'|'T'|'B', pos:0-4, color}
+const LEVELS = [
+  {
+    cells: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    emitters:  [{side:'L',pos:2,color:'#ff6b6b'}],
+    receivers: [{side:'T',pos:4,color:'#ff6b6b'}],
+    maxMirrors: 2,
+    hint: 'Place a / mirror where the beam should turn upward'
+  },
+  {
+    cells: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    emitters:  [{side:'T',pos:0,color:'#60a5fa'}],
+    receivers: [{side:'R',pos:4,color:'#60a5fa'}],
+    maxMirrors: 2,
+    hint: 'A backslash mirror will redirect the beam down then right'
+  },
+  {
+    cells: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    emitters:  [{side:'T',pos:0,color:'#34d399'}],
+    receivers: [{side:'B',pos:4,color:'#34d399'}],
+    maxMirrors: 3,
+    hint: 'Two backslash mirrors create a diagonal S-shaped path'
+  },
+  {
+    cells: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    emitters:  [{side:'L',pos:0,color:'#fbbf24'}],
+    receivers: [{side:'L',pos:4,color:'#fbbf24'}],
+    maxMirrors: 3,
+    hint: 'Use backslash then / to send the beam on a U-shaped return trip'
+  },
+  {
+    cells: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    emitters:  [{side:'L',pos:1,color:'#ff6b6b'},{side:'T',pos:1,color:'#60a5fa'}],
+    receivers: [{side:'T',pos:3,color:'#ff6b6b'},{side:'R',pos:3,color:'#60a5fa'}],
+    maxMirrors: 4,
+    hint: 'Two beams cross without interfering — each needs its own mirror'
+  },
+  {
+    cells: [[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    emitters:  [{side:'L',pos:2,color:'#ff6b6b'},{side:'T',pos:2,color:'#60a5fa'}],
+    receivers: [{side:'T',pos:2,color:'#ff6b6b'},{side:'L',pos:2,color:'#60a5fa'}],
+    maxMirrors: 2,
+    hint: 'One mirror placed at the crossing point deflects both beams at once!'
+  },
+  {
+    cells: [[0,0,0,0,0],[0,0,0,0,2],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]],
+    emitters:  [{side:'T',pos:4,color:'#a78bfa'},{side:'T',pos:0,color:'#34d399'},{side:'L',pos:3,color:'#fbbf24'}],
+    receivers: [{side:'L',pos:1,color:'#a78bfa'},{side:'R',pos:2,color:'#34d399'},{side:'T',pos:3,color:'#fbbf24'}],
+    maxMirrors: 3,
+    hint: 'The glowing fixed crystal is already deflecting one beam — add two more'
+  },
+  {
+    cells: [[0,0,0,0,3],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[2,0,0,0,0]],
+    emitters:  [
+      {side:'L',pos:0,color:'#ff6b6b'},
+      {side:'B',pos:0,color:'#fbbf24'},
+      {side:'T',pos:1,color:'#34d399'},
+      {side:'L',pos:3,color:'#60a5fa'},
+      {side:'L',pos:2,color:'#a78bfa'}
+    ],
+    receivers: [
+      {side:'B',pos:4,color:'#ff6b6b'},
+      {side:'R',pos:4,color:'#fbbf24'},
+      {side:'R',pos:3,color:'#34d399'},
+      {side:'B',pos:1,color:'#60a5fa'},
+      {side:'T',pos:0,color:'#a78bfa'}
+    ],
+    maxMirrors: 4,
+    hint: 'Two fixed mirrors handle two beams — route the remaining three'
+  }
+];
+
+// ── State ──────────────────────────────────────────────────────
+let lvl = 0;
+let pm  = [];   // playerMirrors[r][c]: null | '/' | '\\'
+
+function loadLevel(idx) {
+  pm = Array.from({length:5}, () => Array(5).fill(null));
+  document.getElementById('lvlNum').textContent = idx + 1;
+  document.getElementById('mMax').textContent   = LEVELS[idx].maxMirrors;
+  document.getElementById('hintBox').textContent = LEVELS[idx].hint;
+  updateMCount();
+}
+
+function countM() {
+  let n = 0;
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) if (pm[r][c]) n++;
+  return n;
+}
+
+function updateMCount() {
+  document.getElementById('mUsed').textContent = countM();
+}
+
+// ── Ray tracing ────────────────────────────────────────────────
+const DR = {U:-1, D:1, L:0, R:0};
+const DC = {U:0, D:0, L:-1, R:1};
+
+function reflect(dir, mirror) {
+  return mirror === '/'
+    ? {R:'U', U:'R', L:'D', D:'L'}[dir]
+    : {R:'D', D:'R', L:'U', U:'L'}[dir];
+}
+
+function emStart(em) {
+  const m = {L:{r:em.pos,c:-1,dir:'R'}, R:{r:em.pos,c:5,dir:'L'},
+             T:{r:-1,c:em.pos,dir:'D'}, B:{r:5,c:em.pos,dir:'U'}};
+  return m[em.side];
+}
+
+function traceBeam(em) {
+  let {r, c, dir} = emStart(em);
+  const lv = LEVELS[lvl];
+  const path = [];
+  const seen = new Set();
+  for (let i = 0; i < 60; i++) {
+    r += DR[dir]; c += DC[dir];
+    if (r < 0 || r >= 5 || c < 0 || c >= 5) { path.push({r, c, exitDir: dir}); break; }
+    path.push({r, c});
+    const key = r + ',' + c + ',' + dir;
+    if (seen.has(key)) break;
+    seen.add(key);
+    if (lv.cells[r][c] === 1) break;
+    let mirror = null;
+    if (lv.cells[r][c] === 2) mirror = '/';
+    else if (lv.cells[r][c] === 3) mirror = '\\';
+    else if (pm[r][c]) mirror = pm[r][c];
+    if (mirror) dir = reflect(dir, mirror);
+  }
+  return path;
+}
+
+function isReceiverLit(rx, path) {
+  if (!path.length) return false;
+  const last = path[path.length - 1];
+  if (!last.exitDir) return false;
+  const {r, c, exitDir} = last;
+  if (rx.side === 'L') return c === -1 && exitDir === 'L' && r === rx.pos;
+  if (rx.side === 'R') return c === 5  && exitDir === 'R' && r === rx.pos;
+  if (rx.side === 'T') return r === -1 && exitDir === 'U' && c === rx.pos;
+  if (rx.side === 'B') return r === 5  && exitDir === 'D' && c === rx.pos;
+  return false;
+}
+
+function checkAllLit(paths) {
+  const lv = LEVELS[lvl];
+  return lv.receivers.every(rx =>
+    lv.emitters.some((em, i) => em.color === rx.color && isReceiverLit(rx, paths[i]))
+  );
+}
+
+// ── Drawing helpers ────────────────────────────────────────────
+// Grid cell (r,c) top-left corner in canvas space
+function cellXY(r, c) { return [(c + 1) * CELL, (r + 1) * CELL]; }
+
+// Border position for emitter/receiver
+function borderXY(side, pos) {
+  const mid = pos * CELL + CELL * 1.5;
+  if (side === 'L') return [CELL * 0.5, mid];
+  if (side === 'R') return [W - CELL * 0.5, mid];
+  if (side === 'T') return [mid, CELL * 0.5];
+  return [mid, W - CELL * 0.5];
+}
+
+function draw() {
+  const lv = LEVELS[lvl];
+  ctx.clearRect(0, 0, W, W);
+
+  // Background
+  ctx.fillStyle = '#060612';
+  ctx.fillRect(0, 0, W, W);
+
+  // Grid area fill
+  ctx.fillStyle = '#0c0c22';
+  ctx.roundRect(CELL, CELL, CELL * 5, CELL * 5, 8);
+  ctx.fill();
+
+  // Trace beams
+  const paths = lv.emitters.map(traceBeam);
+
+  // Draw beams (behind cells)
+  paths.forEach((path, i) => drawBeam(path, lv.emitters[i].color));
+
+  // Grid cells
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const [x, y] = cellXY(r, c);
+      const cell = lv.cells[r][c];
+      // Cell bg
+      ctx.fillStyle = cell === 1 ? '#10102a' : '#14142e';
+      ctx.beginPath(); ctx.roundRect(x+2, y+2, CELL-4, CELL-4, 4); ctx.fill();
+      ctx.strokeStyle = '#1e1e40'; ctx.lineWidth = 1; ctx.stroke();
+      // Wall hatch
+      if (cell === 1) {
+        ctx.save(); ctx.strokeStyle = '#1a1a38'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x+2,y+2); ctx.lineTo(x+CELL-2,y+CELL-2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x+CELL-2,y+2); ctx.lineTo(x+2,y+CELL-2); ctx.stroke();
+        ctx.restore();
+      }
+      // Fixed mirror
+      if (cell === 2) drawMirrorAt(x, y, '/',  '#e0d0ff', true);
+      if (cell === 3) drawMirrorAt(x, y, '\\', '#e0d0ff', true);
+      // Player mirror
+      if (pm[r][c]) drawMirrorAt(x, y, pm[r][c], '#a78bfa', false);
+    }
+  }
+
+  // Emitters and receivers
+  const litMap = lv.receivers.map((rx, ri) =>
+    lv.emitters.some((em, ei) => em.color === rx.color && isReceiverLit(rx, paths[ei]))
+  );
+  lv.emitters.forEach(em => {
+    const [ex, ey] = borderXY(em.side, em.pos);
+    drawEmitter(ex, ey, em.color);
+  });
+  lv.receivers.forEach((rx, ri) => {
+    const [rx2, ry] = borderXY(rx.side, rx.pos);
+    drawReceiver(rx2, ry, rx.color, litMap[ri]);
+  });
+}
+
+function drawBeam(path, color) {
+  if (path.length < 1) return;
+  ctx.save();
+  ctx.shadowColor = color; ctx.shadowBlur = 10;
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.globalAlpha = 0.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  // Start from emitter border to first cell
+  let first = true;
+  for (const pt of path) {
+    const cx = (pt.c + 1) * CELL + CELL / 2;
+    const cy = (pt.r + 1) * CELL + CELL / 2;
+    if (first) { ctx.moveTo(cx, cy); first = false; }
+    else ctx.lineTo(cx, cy);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawMirrorAt(x, y, type, color, fixed) {
+  const pad = CELL * 0.22;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = fixed ? 3 : 2.5;
+  ctx.shadowColor = color; ctx.shadowBlur = fixed ? 14 : 9;
+  ctx.lineCap = 'round'; ctx.globalAlpha = fixed ? 0.9 : 0.8;
+  ctx.beginPath();
+  if (type === '/') {
+    ctx.moveTo(x + CELL - pad, y + pad);
+    ctx.lineTo(x + pad, y + CELL - pad);
+  } else {
+    ctx.moveTo(x + pad, y + pad);
+    ctx.lineTo(x + CELL - pad, y + CELL - pad);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawEmitter(x, y, color) {
+  ctx.save();
+  ctx.shadowColor = color; ctx.shadowBlur = 16;
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, CELL * 0.29, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawReceiver(x, y, color, lit) {
+  ctx.save();
+  if (lit) {
+    ctx.shadowColor = color; ctx.shadowBlur = 22;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x, y, CELL * 0.29, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x, y, CELL * 0.1, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.shadowColor = color; ctx.shadowBlur = 8; ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(x, y, CELL * 0.29, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = color; ctx.globalAlpha = 0.35;
+    ctx.beginPath(); ctx.arc(x, y, CELL * 0.1, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── Interaction ────────────────────────────────────────────────
+function handleTap(px, py) {
+  const col = Math.floor(px / CELL) - 1;
+  const row = Math.floor(py / CELL) - 1;
+  if (col < 0 || col >= 5 || row < 0 || row >= 5) return;
+  const cell = LEVELS[lvl].cells[row][col];
+  if (cell !== 0) return;
+  const cur = pm[row][col];
+  if (cur === null) {
+    if (countM() >= LEVELS[lvl].maxMirrors) return;
+    pm[row][col] = '/';
+  } else if (cur === '/') {
+    pm[row][col] = '\\';
+  } else {
+    pm[row][col] = null;
+  }
+  updateMCount();
+  draw();
+  const paths = LEVELS[lvl].emitters.map(traceBeam);
+  if (checkAllLit(paths)) setTimeout(showClear, 280);
+}
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  const sx = W / r.width, sy = W / r.height;
+  handleTap((e.clientX - r.left) * sx, (e.clientY - r.top) * sy);
+});
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  const sx = W / r.width, sy = W / r.height;
+  const t = e.touches[0];
+  handleTap((t.clientX - r.left) * sx, (t.clientY - r.top) * sy);
+}, {passive: false});
+
+// ── Screens ────────────────────────────────────────────────────
+function showClear() {
+  document.getElementById('clearMsg').textContent =
+    'Level ' + (lvl + 1) + ' complete!  Mirrors used: ' + countM() + ' / ' + LEVELS[lvl].maxMirrors;
+  document.getElementById('clearScr').classList.remove('hidden');
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('titleScr').classList.add('hidden');
+  loadLevel(0); draw();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  document.getElementById('clearScr').classList.add('hidden');
+  lvl++;
+  if (lvl >= LEVELS.length) {
+    document.getElementById('victScr').classList.remove('hidden'); return;
+  }
+  loadLevel(lvl); draw();
+});
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+  document.getElementById('victScr').classList.add('hidden');
+  lvl = 0; loadLevel(0); draw();
+});
+document.getElementById('resetBtn').addEventListener('click', () => { loadLevel(lvl); draw(); });
+
+// ── Boot ───────────────────────────────────────────────────────
+loadLevel(0);
+draw();
+(function loop() { draw(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

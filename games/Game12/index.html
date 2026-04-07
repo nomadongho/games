@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Untangle</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Courier New', Courier, monospace;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      overflow: hidden;
+    }
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    #hud {
+      width: 100%; max-width: 420px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 10px; color: #9ca3af; font-size: clamp(11px,2.8vw,14px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    canvas { display: block; cursor: grab; border-radius: 10px; touch-action: none; }
+    canvas.dragging { cursor: grabbing; }
+    #msg {
+      font-size: clamp(10px,2.6vw,12px); color: #6b7280;
+      text-align: center; min-height: 18px;
+    }
+    #btns { display: flex; gap: 10px; }
+    .ibtn {
+      font-family: inherit; font-size: clamp(11px,2.8vw,13px);
+      background: #1a1a2e; color: #9ca3af;
+      border: 1px solid #3d3d6e; border-radius: 99px;
+      padding: 7px 16px; cursor: pointer;
+    }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; margin-top: 2px; }
+    a#back:hover { color: #9ca3af; }
+    .ov {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 24px;
+      background: rgba(6,6,18,0.93); z-index: 10;
+    }
+    .ov h1 {
+      font-size: clamp(26px,8vw,46px); color: #a78bfa;
+      text-shadow: 0 0 24px #a78bfa; letter-spacing: 4px; text-align: center;
+    }
+    .ov p {
+      font-size: clamp(12px,3vw,14px); color: rgba(255,255,255,0.65);
+      text-align: center; line-height: 1.85; max-width: 300px;
+    }
+    .obtn {
+      font-family: inherit; font-size: clamp(13px,3.5vw,15px);
+      color: #050510; background: #a78bfa;
+      border: none; border-radius: 999px;
+      padding: 10px 32px; letter-spacing: 2px; cursor: pointer;
+      animation: pb 1.4s ease-in-out infinite;
+    }
+    @keyframes pb { 0%,100%{box-shadow:0 0 12px #a78bfa88}50%{box-shadow:0 0 28px #a78bfacc} }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>Level <span id="lvlNum">1</span> / 8</div>
+    <div>Crossings: <span id="crossNum">—</span></div>
+  </div>
+  <canvas id="c"></canvas>
+  <div id="msg">Drag nodes so no edges cross</div>
+  <div id="btns">
+    <button class="ibtn" id="scrambleBtn">&#x21BA; Scramble</button>
+  </div>
+  <a id="back" href="../../index.html">&#8592; Back to Games</a>
+</div>
+
+<div class="ov" id="titleScr">
+  <h1>UNTANGLE</h1>
+  <p>A graph of nodes is tangled up.<br><br>
+     <strong style="color:#f87171">Red edges</strong> are crossing.<br>
+     <strong style="color:#34d399">Green edges</strong> are clear.<br><br>
+     Drag nodes until <strong>no edges cross</strong>.<br><br>
+     Every puzzle has a solution!
+  </p>
+  <button class="obtn" id="startBtn">&#9654; Begin</button>
+</div>
+
+<div class="ov hidden" id="clearScr">
+  <h1 style="color:#34d399;text-shadow:0 0 24px #34d399;">UNTANGLED!</h1>
+  <p id="clearMsg"></p>
+  <button class="obtn" style="background:#34d399;animation:none" id="nextBtn">Next Level &#8594;</button>
+</div>
+
+<div class="ov hidden" id="victScr">
+  <h1 style="color:#fbbf24;text-shadow:0 0 24px #fbbf24;">ALL CLEAR!</h1>
+  <p>Every graph untangled!</p>
+  <button class="obtn" style="background:#fbbf24;animation:none" id="playAgainBtn">Play Again</button>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+const SIZE = Math.min(window.innerWidth - 16, window.innerHeight - 160, 420);
+canvas.width  = SIZE;
+canvas.height = SIZE;
+canvas.style.width  = SIZE + 'px';
+canvas.style.height = SIZE + 'px';
+
+const PAD = 36;  // padding so nodes don't go off edge
+const NR  = Math.max(14, SIZE * 0.038); // node radius
+
+// ── Level definitions ──────────────────────────────────────────
+// nodes: normalized [0,1] positions for the SOLVED layout
+// edges: pairs of node indices
+// startPos: scrambled starting positions (normalized)
+const LEVELS = [
+  // 1: K4 — 4 nodes, 6 edges
+  {
+    nodes: [
+      [0.5, 0.1], [0.9, 0.75], [0.1, 0.75], [0.5, 0.5]
+    ],
+    edges: [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]],
+    start: [
+      [0.5, 0.5], [0.55, 0.52], [0.45, 0.48], [0.5, 0.45]
+    ]
+  },
+  // 2: 5 nodes
+  {
+    nodes: [
+      [0.5,0.08],[0.9,0.38],[0.72,0.88],[0.28,0.88],[0.1,0.38]
+    ],
+    edges: [[0,1],[1,2],[2,3],[3,4],[4,0],[0,2],[1,3],[2,4],[3,0],[4,1]],
+    start: [
+      [0.5,0.5],[0.55,0.45],[0.52,0.55],[0.45,0.52],[0.48,0.48]
+    ]
+  },
+  // 3: Wheel W5 — 6 nodes (5 outer + center)
+  {
+    nodes: [
+      [0.5,0.5],[0.5,0.08],[0.9,0.36],[0.76,0.86],[0.24,0.86],[0.1,0.36]
+    ],
+    edges: [[0,1],[0,2],[0,3],[0,4],[0,5],[1,2],[2,3],[3,4],[4,5],[5,1]],
+    start: [
+      [0.5,0.5],[0.52,0.52],[0.48,0.5],[0.5,0.48],[0.46,0.52],[0.54,0.48]
+    ]
+  },
+  // 4: 7 nodes
+  {
+    nodes: [
+      [0.5,0.08],[0.86,0.3],[0.88,0.72],[0.5,0.92],[0.12,0.72],[0.14,0.3],[0.5,0.5]
+    ],
+    edges: [
+      [0,1],[1,2],[2,3],[3,4],[4,5],[5,0],
+      [0,3],[1,4],[2,5],
+      [6,0],[6,2],[6,4]
+    ],
+    start: [
+      [0.5,0.5],[0.52,0.5],[0.5,0.52],[0.48,0.5],[0.5,0.48],[0.52,0.52],[0.51,0.49]
+    ]
+  },
+  // 5: 8 nodes
+  {
+    nodes: [
+      [0.5,0.06],[0.84,0.2],[0.96,0.56],[0.78,0.9],[0.5,0.96],
+      [0.22,0.9],[0.04,0.56],[0.16,0.2]
+    ],
+    edges: [
+      [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],
+      [0,4],[1,5],[2,6],[3,7]
+    ],
+    start: [
+      [0.5,0.5],[0.53,0.5],[0.5,0.53],[0.47,0.5],[0.5,0.47],
+      [0.53,0.53],[0.47,0.53],[0.47,0.47]
+    ]
+  },
+  // 6: 9 nodes — 3x3 grid graph + cross diagonals
+  {
+    nodes: [
+      [0.2,0.2],[0.5,0.2],[0.8,0.2],
+      [0.2,0.5],[0.5,0.5],[0.8,0.5],
+      [0.2,0.8],[0.5,0.8],[0.8,0.8]
+    ],
+    edges: [
+      [0,1],[1,2],[3,4],[4,5],[6,7],[7,8],
+      [0,3],[3,6],[1,4],[4,7],[2,5],[5,8],
+      [0,4],[2,4],[4,6],[4,8]
+    ],
+    start: [
+      [0.5,0.5],[0.52,0.5],[0.5,0.52],[0.48,0.5],[0.51,0.51],
+      [0.5,0.48],[0.53,0.53],[0.47,0.53],[0.53,0.47]
+    ]
+  },
+  // 7: 10 nodes
+  {
+    nodes: [
+      [0.5,0.06],[0.82,0.18],[0.96,0.5],[0.82,0.82],[0.5,0.94],
+      [0.18,0.82],[0.04,0.5],[0.18,0.18],[0.5,0.35],[0.5,0.65]
+    ],
+    edges: [
+      [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],
+      [0,4],[1,5],[2,6],[3,7],
+      [8,0],[8,2],[8,4],[8,6],
+      [9,1],[9,3],[9,5],[9,7]
+    ],
+    start: [
+      [0.5,0.5],[0.52,0.5],[0.5,0.52],[0.48,0.5],[0.5,0.48],
+      [0.52,0.52],[0.48,0.52],[0.48,0.48],[0.52,0.48],[0.51,0.51]
+    ]
+  },
+  // 8: 12 nodes — outer 10-gon + 2 inner hubs
+  {
+    nodes: [
+      [0.5,0.05],[0.79,0.12],[0.96,0.38],[0.96,0.66],[0.79,0.9],
+      [0.5,0.96],[0.21,0.9],[0.04,0.66],[0.04,0.38],[0.21,0.12],
+      [0.5,0.38],[0.5,0.65]
+    ],
+    edges: [
+      [0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,0],
+      [10,0],[10,2],[10,4],[10,6],[10,8],
+      [11,1],[11,3],[11,5],[11,7],[11,9]
+    ],
+    start: [
+      [0.5,0.5],[0.52,0.5],[0.5,0.52],[0.48,0.5],[0.5,0.48],
+      [0.52,0.52],[0.48,0.52],[0.48,0.48],[0.52,0.48],[0.51,0.51],
+      [0.5,0.51],[0.51,0.5]
+    ]
+  }
+];
+
+// ── State ──────────────────────────────────────────────────────
+let lvl = 0;
+let nodes = [];        // [{x,y}] in pixel space
+let edges = [];        // [{a,b}]
+let dragging = -1;
+let dragOffX = 0, dragOffY = 0;
+let solved = false;
+
+function toPixel(nx, ny) {
+  return {
+    x: PAD + nx * (SIZE - PAD * 2),
+    y: PAD + ny * (SIZE - PAD * 2)
+  };
+}
+
+function loadLevel(idx) {
+  lvl = idx;
+  solved = false;
+  const lv = LEVELS[idx];
+  edges = lv.edges.map(e => ({a: e[0], b: e[1]}));
+  // Use scrambled start positions with deterministic jitter
+  nodes = lv.start.map(([nx, ny], i) => {
+    // Add level-dependent deterministic offset to scramble the start
+    const seed = (idx * 7 + i * 13 + 5) % 100;
+    const ang = seed * 0.0628;
+    const rad = 0.15 + (seed % 20) * 0.01;
+    const jx = Math.cos(ang * (i + 1)) * rad;
+    const jy = Math.sin(ang * (i + 1) * 1.3) * rad;
+    const p = toPixel(
+      Math.max(0.05, Math.min(0.95, nx + jx)),
+      Math.max(0.05, Math.min(0.95, ny + jy))
+    );
+    return {x: p.x, y: p.y};
+  });
+  document.getElementById('lvlNum').textContent = idx + 1;
+  updateCrossCount();
+}
+
+function scramble() {
+  const lv = LEVELS[lvl];
+  const t = Date.now();
+  nodes = lv.start.map(([nx, ny], i) => {
+    const ang = (t * 0.001 + i * 2.4) % (Math.PI * 2);
+    const rad = 0.18 + (i % 4) * 0.05;
+    const p = toPixel(
+      Math.max(0.05, Math.min(0.95, 0.5 + Math.cos(ang) * rad)),
+      Math.max(0.05, Math.min(0.95, 0.5 + Math.sin(ang * 1.3) * rad))
+    );
+    return {x: p.x, y: p.y};
+  });
+  solved = false;
+  updateCrossCount();
+  draw();
+}
+
+// ── Crossing detection ─────────────────────────────────────────
+function cross2d(ox, oy, ax, ay, bx, by) {
+  return (ax - ox) * (by - oy) - (ay - oy) * (bx - ox);
+}
+
+function segmentsIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
+  const d1 = cross2d(cx, cy, dx, dy, ax, ay);
+  const d2 = cross2d(cx, cy, dx, dy, bx, by);
+  const d3 = cross2d(ax, ay, bx, by, cx, cy);
+  const d4 = cross2d(ax, ay, bx, by, dx, dy);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+  return false;
+}
+
+function countCrossings() {
+  let n = 0;
+  for (let i = 0; i < edges.length; i++) {
+    for (let j = i + 1; j < edges.length; j++) {
+      const e1 = edges[i], e2 = edges[j];
+      // Skip edges sharing a node
+      if (e1.a === e2.a || e1.a === e2.b || e1.b === e2.a || e1.b === e2.b) continue;
+      const n1 = nodes[e1.a], n2 = nodes[e1.b];
+      const n3 = nodes[e2.a], n4 = nodes[e2.b];
+      if (segmentsIntersect(n1.x, n1.y, n2.x, n2.y, n3.x, n3.y, n4.x, n4.y)) n++;
+    }
+  }
+  return n;
+}
+
+function getCrossingEdges() {
+  const crossing = new Set();
+  for (let i = 0; i < edges.length; i++) {
+    for (let j = i + 1; j < edges.length; j++) {
+      const e1 = edges[i], e2 = edges[j];
+      if (e1.a === e2.a || e1.a === e2.b || e1.b === e2.a || e1.b === e2.b) continue;
+      const n1 = nodes[e1.a], n2 = nodes[e1.b];
+      const n3 = nodes[e2.a], n4 = nodes[e2.b];
+      if (segmentsIntersect(n1.x, n1.y, n2.x, n2.y, n3.x, n3.y, n4.x, n4.y)) {
+        crossing.add(i); crossing.add(j);
+      }
+    }
+  }
+  return crossing;
+}
+
+function updateCrossCount() {
+  const n = countCrossings();
+  document.getElementById('crossNum').textContent = n;
+  document.getElementById('msg').textContent =
+    n === 0 ? 'No crossings — untangled!' : n + ' crossing' + (n > 1 ? 's' : '') + ' — keep dragging';
+  return n;
+}
+
+// ── Drawing ────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, SIZE, SIZE);
+  ctx.fillStyle = '#060612';
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  const crossing = getCrossingEdges();
+
+  // Edges
+  edges.forEach((e, i) => {
+    const n1 = nodes[e.a], n2 = nodes[e.b];
+    const isCross = crossing.has(i);
+    ctx.save();
+    ctx.strokeStyle = isCross ? '#f87171' : '#34d399';
+    ctx.lineWidth   = isCross ? 2 : 1.5;
+    ctx.globalAlpha = isCross ? 0.85 : 0.55;
+    ctx.shadowColor = isCross ? '#f87171' : '#34d399';
+    ctx.shadowBlur  = isCross ? 6 : 3;
+    ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y); ctx.stroke();
+    ctx.restore();
+  });
+
+  // Nodes
+  nodes.forEach((n, i) => {
+    const isDragged = i === dragging;
+    ctx.save();
+    ctx.shadowColor = isDragged ? '#fff' : '#a78bfa';
+    ctx.shadowBlur  = isDragged ? 18 : 10;
+    // Outer glow
+    ctx.fillStyle = isDragged ? 'rgba(255,255,255,0.15)' : 'rgba(167,139,250,0.12)';
+    ctx.beginPath(); ctx.arc(n.x, n.y, NR * 1.5, 0, Math.PI * 2); ctx.fill();
+    // Node body
+    const grad = ctx.createRadialGradient(n.x - NR*0.3, n.y - NR*0.3, 0, n.x, n.y, NR);
+    if (isDragged) {
+      grad.addColorStop(0, '#fff');
+      grad.addColorStop(1, '#c4b5fd');
+    } else {
+      grad.addColorStop(0, '#c4b5fd');
+      grad.addColorStop(1, '#6d28d9');
+    }
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(n.x, n.y, NR, 0, Math.PI * 2); ctx.fill();
+    // Label
+    ctx.fillStyle = isDragged ? '#1a0050' : '#e9d5ff';
+    ctx.font = 'bold ' + Math.round(NR * 0.9) + 'px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(i + 1, n.x, n.y);
+    ctx.restore();
+  });
+}
+
+// ── Drag interaction ───────────────────────────────────────────
+function findNearestNode(x, y) {
+  let best = -1, bestD = NR * 2.5;
+  nodes.forEach((n, i) => {
+    const d = Math.hypot(n.x - x, n.y - y);
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  return best;
+}
+
+function getEventPos(e) {
+  const r = canvas.getBoundingClientRect();
+  const sx = SIZE / r.width, sy = SIZE / r.height;
+  if (e.touches) {
+    return {x: (e.touches[0].clientX - r.left) * sx, y: (e.touches[0].clientY - r.top) * sy};
+  }
+  return {x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy};
+}
+
+canvas.addEventListener('mousedown', e => {
+  const {x, y} = getEventPos(e);
+  dragging = findNearestNode(x, y);
+  if (dragging >= 0) {
+    dragOffX = nodes[dragging].x - x;
+    dragOffY = nodes[dragging].y - y;
+    canvas.classList.add('dragging');
+  }
+});
+canvas.addEventListener('mousemove', e => {
+  if (dragging < 0) return;
+  const {x, y} = getEventPos(e);
+  nodes[dragging].x = Math.max(NR, Math.min(SIZE - NR, x + dragOffX));
+  nodes[dragging].y = Math.max(NR, Math.min(SIZE - NR, y + dragOffY));
+  draw();
+  if (!solved) {
+    const n = updateCrossCount();
+    if (n === 0) { solved = true; setTimeout(showClear, 350); }
+  }
+});
+canvas.addEventListener('mouseup', () => { dragging = -1; canvas.classList.remove('dragging'); draw(); });
+canvas.addEventListener('mouseleave', () => { dragging = -1; canvas.classList.remove('dragging'); });
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const {x, y} = getEventPos(e);
+  dragging = findNearestNode(x, y);
+  if (dragging >= 0) { dragOffX = nodes[dragging].x - x; dragOffY = nodes[dragging].y - y; }
+}, {passive: false});
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (dragging < 0) return;
+  const {x, y} = getEventPos(e);
+  nodes[dragging].x = Math.max(NR, Math.min(SIZE - NR, x + dragOffX));
+  nodes[dragging].y = Math.max(NR, Math.min(SIZE - NR, y + dragOffY));
+  draw();
+  if (!solved) {
+    const n = updateCrossCount();
+    if (n === 0) { solved = true; setTimeout(showClear, 350); }
+  }
+}, {passive: false});
+canvas.addEventListener('touchend', e => { e.preventDefault(); dragging = -1; draw(); }, {passive: false});
+
+// ── Screens ────────────────────────────────────────────────────
+function showClear() {
+  document.getElementById('clearMsg').textContent =
+    'Level ' + (lvl + 1) + ' untangled!  ' + nodes.length + ' nodes, ' + edges.length + ' edges.';
+  document.getElementById('clearScr').classList.remove('hidden');
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('titleScr').classList.add('hidden');
+  loadLevel(0); draw();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  document.getElementById('clearScr').classList.add('hidden');
+  lvl++;
+  if (lvl >= LEVELS.length) {
+    document.getElementById('victScr').classList.remove('hidden'); return;
+  }
+  loadLevel(lvl); draw();
+});
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+  document.getElementById('victScr').classList.add('hidden');
+  lvl = 0; loadLevel(0); draw();
+});
+document.getElementById('scrambleBtn').addEventListener('click', scramble);
+
+// ── Boot ───────────────────────────────────────────────────────
+loadLevel(0);
+draw();
+(function loop() { draw(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
