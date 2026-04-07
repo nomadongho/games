@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>행성 귀환</title>
+  <style>
+    *, *::before, *::after {
+      margin: 0; padding: 0; box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #04040e; }
+    canvas { display: block; touch-action: none; position: fixed; top: 0; left: 0; }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 10px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      pointer-events: none; z-index: 10;
+    }
+    .pill {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 20px; padding: 5px 13px;
+      color: rgba(255,255,255,0.9);
+      font: 600 14px/1 -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      backdrop-filter: blur(6px);
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Overlay ── */
+    #overlay {
+      position: fixed; inset: 0;
+      background: rgba(4,4,20,0.92);
+      backdrop-filter: blur(10px);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100; padding: 28px;
+    }
+    #overlay.hidden { display: none; }
+    .ov-title {
+      font: 700 clamp(28px,8.5vw,46px)/1.15
+            -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      color: #fff; text-align: center; margin-bottom: 10px;
+      text-shadow: 0 0 32px rgba(110,210,255,0.85);
+    }
+    .ov-desc {
+      font: 400 clamp(13px,3.8vw,17px)/1.7
+            -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      color: rgba(255,255,255,0.62); text-align: center; margin-bottom: 36px;
+      max-width: 340px;
+    }
+    .ov-desc strong { color: rgba(110,210,255,0.95); font-weight: 600; }
+    .ov-btn {
+      font: 700 clamp(15px,4.5vw,19px)/1
+            -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      color: #fff;
+      background: linear-gradient(135deg,rgba(110,210,255,0.22),rgba(110,210,255,0.08));
+      border: 2px solid rgba(110,210,255,0.55);
+      border-radius: 50px; padding: 14px 48px; cursor: pointer;
+      box-shadow: 0 0 22px rgba(110,210,255,0.22);
+      transition: transform .15s, box-shadow .15s;
+      touch-action: manipulation;
+    }
+    .ov-btn:active { transform: scale(0.96); box-shadow: 0 0 38px rgba(110,210,255,0.48); }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="pill" id="hStage">스테이지 1</div>
+  <div class="pill" id="hTimer">⏱ 40</div>
+  <div class="pill" id="hLives">❤️❤️❤️</div>
+</div>
+
+<div id="overlay">
+  <div class="ov-title" id="ovTitle">🪐 행성 귀환</div>
+  <div class="ov-desc" id="ovDesc">
+    행성을 <strong>탭</strong>하면 빨라져요<br>
+    빛나는 홈 존에 도달하면 행성이 멈춰요<br>
+    모든 행성을 홈으로 보내세요!
+  </div>
+  <button class="ov-btn" id="ovBtn">시작하기 🚀</button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ═══════════════════════════════════════════════════
+     CONFIG
+  ═══════════════════════════════════════════════════ */
+  const STAGES = [
+    { n: 2, time: 42, arc: 54, desc: '두 행성을 집으로!' },
+    { n: 3, time: 46, arc: 48, desc: '세 행성을 집으로!' },
+    { n: 4, time: 52, arc: 42, desc: '네 행성을 집으로!' },
+    { n: 5, time: 58, arc: 38, desc: '다섯 행성을 집으로!' },
+    { n: 6, time: 64, arc: 34, desc: '여섯 행성을 집으로!' },
+    { n: 6, time: 52, arc: 27, desc: '⚡ 마지막 도전!' },
+  ];
+
+  // Frame-time cap: prevents huge dt spikes when the tab loses focus
+  const MAX_FRAME_DT = 0.05;
+
+  // Timer-warning overlay constants
+  const WARN_BASE_ALPHA  = 0.10;
+  const WARN_PULSE_ALPHA = 0.08;
+  const WARN_PULSE_SPEED = 130;   // ms per pulse cycle
+
+  // [R, G, B] for each planet slot
+  const COLS = [
+    [255, 100, 100],  // red
+    [255, 210,  50],  // yellow
+    [ 70, 205, 120],  // green
+    [ 80, 155, 255],  // blue
+    [195, 120, 255],  // purple
+    [255, 155,  55],  // orange
+  ];
+
+  /* ═══════════════════════════════════════════════════
+     STATE
+  ═══════════════════════════════════════════════════ */
+  const cv  = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+
+  let W, H, CX, CY;
+  let stageIdx = 0, lives = 3, timer = 0;
+  // state: 'idle' | 'playing' | 'cleared' | 'over' | 'won'
+  let state = 'idle';
+  let clearTimer   = 0;  // countdown after stage clear
+  let announceT    = 0;  // countdown for stage-start banner
+  let lastTs       = 0;
+  let planets = [], stars = [], parts = [];
+
+  /* ═══════════════════════════════════════════════════
+     RESIZE
+  ═══════════════════════════════════════════════════ */
+  function resize() {
+    cv.width  = W  = window.innerWidth;
+    cv.height = H  = window.innerHeight;
+    CX = W / 2;
+    CY = H / 2;
+    buildStars();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* ═══════════════════════════════════════════════════
+     STARS
+  ═══════════════════════════════════════════════════ */
+  function buildStars() {
+    stars = [];
+    for (let i = 0; i < 180; i++) {
+      stars.push({
+        x:  Math.random() * W,
+        y:  Math.random() * H,
+        r:  Math.random() * 1.3 + 0.3,
+        a:  Math.random() * 0.55 + 0.28,
+        tv: Math.random() * 1.6 + 0.4,
+        to: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════
+     PLANETS
+  ═══════════════════════════════════════════════════ */
+  function orbitRadius(idx, total) {
+    const dim   = Math.min(W, H);
+    const inner = dim * 0.145;
+    const outer = dim * 0.435;
+    return total === 1
+      ? (inner + outer) / 2
+      : inner + idx * (outer - inner) / (total - 1);
+  }
+
+  function makePlanet(idx, total, arcDeg) {
+    const [r, g, b] = COLS[idx % COLS.length];
+    const oR     = orbitRadius(idx, total);
+    const arcRad = arcDeg * Math.PI / 180;
+
+    // Alternate direction in harder stages for variety
+    const dir = (total >= 5 && idx % 3 === 2) ? -1 : 1;
+    const spd = dir * (0.38 + idx * 0.055 + Math.random() * 0.16);
+
+    // Target zone evenly distributed around orbit
+    const ta = (idx / total) * Math.PI * 2;
+
+    // Start angle: ~half orbit away from target, with small random offset
+    const offset = (0.42 + Math.random() * 0.32) * Math.PI * 2;
+    const sa     = normalizeAngle(ta + offset);
+
+    return {
+      r, g, b, oR, spd,
+      angle: sa, ta, arcRad,
+      vr: 12 + (idx % 2) * 3,    // visual radius 12 or 15
+      stopped: false, boosting: false, boostLeft: 0, pulse: 0,
+    };
+  }
+
+  const pX = p => CX + Math.cos(p.angle) * p.oR;
+  const pY = p => CY + Math.sin(p.angle) * p.oR;
+
+  // Smallest angular distance between two angles (result: 0..PI)
+  function angleDiff(a, b) {
+    let d = Math.abs(a - b) % (Math.PI * 2);
+    if (d > Math.PI) d = Math.PI * 2 - d;
+    return d;
+  }
+
+  // Wrap an angle into [0, 2π)
+  function normalizeAngle(a) {
+    return ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  }
+
+  function inZone(p) {
+    return angleDiff(p.angle, p.ta) <= p.arcRad / 2;
+  }
+
+  // 0 = far, 1 = right at target (used to brighten zone as planet approaches)
+  function proximity(p) {
+    return Math.max(0, 1 - angleDiff(p.angle, p.ta) / (Math.PI * 0.5));
+  }
+
+  function updatePlanet(p, dt) {
+    if (p.stopped) { p.pulse += dt * 2.5; return; }
+    if (p.boostLeft > 0) { p.boostLeft -= dt; p.boosting = p.boostLeft > 0; }
+    const spd = p.spd * (p.boosting ? 2.8 : 1);
+    p.angle = normalizeAngle(p.angle + spd * dt);
+    if (inZone(p)) {
+      p.stopped = true;
+      p.angle   = p.ta;   // snap to zone centre
+      spawnBurst(pX(p), pY(p), p.r, p.g, p.b);
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════
+     PARTICLES
+  ═══════════════════════════════════════════════════ */
+  function spawnBurst(x, y, r, g, b) {
+    for (let i = 0; i < 24; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 70 + Math.random() * 130;
+      parts.push({
+        x, y,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        r, g, b,
+        life: 1, decay: 1.1 + Math.random() * 0.9,
+        sz: 2 + Math.random() * 3,
+      });
+    }
+  }
+
+  function updateParts(dt) {
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.91;      p.vy *= 0.91;
+      p.life -= p.decay * dt;
+      if (p.life <= 0) parts.splice(i, 1);
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════
+     DRAW HELPERS
+  ═══════════════════════════════════════════════════ */
+  function drawBg(t) {
+    ctx.fillStyle = '#04040e';
+    ctx.fillRect(0, 0, W, H);
+    for (const s of stars) {
+      const a = s.a * (0.65 + 0.35 * Math.sin(t * s.tv + s.to));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${a})`;
+      ctx.fill();
+    }
+  }
+
+  function drawSun() {
+    const g = ctx.createRadialGradient(CX, CY, 8, CX, CY, 54);
+    g.addColorStop(0,    'rgba(255,235,100,0.75)');
+    g.addColorStop(0.45, 'rgba(255,130, 30,0.35)');
+    g.addColorStop(1,    'rgba(255, 80,  0,0)');
+    ctx.beginPath(); ctx.arc(CX, CY, 54, 0, Math.PI * 2);
+    ctx.fillStyle = g; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(CX, CY, 22, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffe580'; ctx.fill();
+    ctx.beginPath(); ctx.arc(CX, CY, 17, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff3b0'; ctx.fill();
+  }
+
+  function drawOrbit(p) {
+    // Faint orbit ring
+    ctx.beginPath(); ctx.arc(CX, CY, p.oR, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1; ctx.stroke();
+
+    // Home zone arc — brightens as planet approaches
+    const prox  = p.stopped ? 1 : proximity(p);
+    const alpha = p.stopped ? 1 : (0.42 + prox * 0.58);
+    const lw    = p.stopped ? 5 : (2.5 + prox * 2);
+    const blur  = p.stopped ? 15 : (5  + prox * 10);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(CX, CY, p.oR, p.ta - p.arcRad / 2, p.ta + p.arcRad / 2);
+    ctx.strokeStyle = `rgba(${p.r},${p.g},${p.b},${alpha})`;
+    ctx.lineWidth   = lw;
+    ctx.shadowColor = `rgb(${p.r},${p.g},${p.b})`;
+    ctx.shadowBlur  = blur;
+    ctx.stroke();
+    ctx.restore();
+
+    // Small dot marker at zone centre (hidden when stopped)
+    if (!p.stopped) {
+      const tx = CX + Math.cos(p.ta) * p.oR;
+      const ty = CY + Math.sin(p.ta) * p.oR;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(tx, ty, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle   = `rgba(${p.r},${p.g},${p.b},0.75)`;
+      ctx.shadowColor = `rgb(${p.r},${p.g},${p.b})`;
+      ctx.shadowBlur  = 8;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawMovingPlanet(p) {
+    if (p.stopped) return;
+    const x  = pX(p), y = pY(p);
+    const vr = p.vr;
+
+    // Glow halo
+    const glowR = p.boosting ? 26 : 14;
+    const glowA = p.boosting ? 0.62 : 0.36;
+    const grd   = ctx.createRadialGradient(x, y, vr * 0.2, x, y, vr + glowR);
+    grd.addColorStop(0, `rgba(${p.r},${p.g},${p.b},${glowA})`);
+    grd.addColorStop(1, `rgba(${p.r},${p.g},${p.b},0)`);
+    ctx.beginPath(); ctx.arc(x, y, vr + glowR, 0, Math.PI * 2);
+    ctx.fillStyle = grd; ctx.fill();
+
+    // Planet body
+    ctx.beginPath(); ctx.arc(x, y, vr, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`; ctx.fill();
+
+    // Specular highlight
+    ctx.beginPath();
+    ctx.arc(x - vr * 0.28, y - vr * 0.32, vr * 0.38, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.32)'; ctx.fill();
+
+    // Boost ring
+    if (p.boosting) {
+      ctx.beginPath(); ctx.arc(x, y, vr + 5, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${p.r},${p.g},${p.b},0.85)`;
+      ctx.lineWidth   = 2.5; ctx.stroke();
+    }
+
+    // Small tangent-direction arrow
+    const tangDir = p.spd > 0 ? Math.PI / 2 : -Math.PI / 2;
+    const ta  = p.angle + tangDir;
+    const ax  = x + Math.cos(ta) * (vr + 9);
+    const ay  = y + Math.sin(ta) * (vr + 9);
+    ctx.save();
+    ctx.translate(ax, ay); ctx.rotate(ta);
+    ctx.beginPath();
+    ctx.moveTo(5, 0); ctx.lineTo(-4, -3); ctx.lineTo(-4, 3);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},0.52)`;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawStoppedPlanet(p) {
+    if (!p.stopped) return;
+    const x  = pX(p), y = pY(p);
+    const vr = p.vr;
+    const ps = 0.85 + 0.15 * Math.sin(p.pulse);
+    const gr = 20  +  8 * Math.sin(p.pulse * 0.7);
+
+    const grd = ctx.createRadialGradient(x, y, 0, x, y, vr + gr);
+    grd.addColorStop(0,    `rgba(${p.r},${p.g},${p.b},0.85)`);
+    grd.addColorStop(0.38, `rgba(${p.r},${p.g},${p.b},0.3)`);
+    grd.addColorStop(1,    `rgba(${p.r},${p.g},${p.b},0)`);
+    ctx.beginPath(); ctx.arc(x, y, vr + gr, 0, Math.PI * 2);
+    ctx.fillStyle = grd; ctx.fill();
+
+    ctx.beginPath(); ctx.arc(x, y, vr * ps, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${p.r},${p.g},${p.b})`; ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x - vr * 0.28, y - vr * 0.32, vr * 0.38, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.32)'; ctx.fill();
+
+    // Check mark
+    ctx.fillStyle     = 'white';
+    ctx.font          = `bold ${Math.round(vr * 0.95)}px Arial`;
+    ctx.textAlign     = 'center';
+    ctx.textBaseline  = 'middle';
+    ctx.fillText('✓', x, y + 1);
+  }
+
+  function drawParts() {
+    for (const p of parts) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.sz * p.life, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${p.life})`;
+      ctx.fill();
+    }
+  }
+
+  function drawTimerWarning() {
+    if (timer > 10 || state !== 'playing') return;
+    const a = WARN_BASE_ALPHA + WARN_PULSE_ALPHA * Math.sin(Date.now() / WARN_PULSE_SPEED);
+    ctx.fillStyle = `rgba(220,30,30,${a})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawProgressBar() {
+    const done  = planets.filter(p => p.stopped).length;
+    if (done === 0) return;
+    const total = planets.length;
+    const bw    = Math.min(W * 0.42, 180);
+    const bh    = 5;
+    const bx    = CX - bw / 2;
+    const by    = H  - 52;
+
+    ctx.beginPath(); ctx.rect(bx, by, bw, bh);
+    ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fill();
+    ctx.beginPath(); ctx.rect(bx, by, bw * done / total, bh);
+    ctx.fillStyle = 'rgba(110,210,255,0.88)'; ctx.fill();
+
+    // Label
+    ctx.fillStyle    = 'rgba(255,255,255,0.45)';
+    ctx.font         = `11px -apple-system, Arial`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${done} / ${total}`, CX, by + 8);
+  }
+
+  function drawAnnounce() {
+    if (announceT <= 0) return;
+    const fadeDur = 0.4;
+    const total   = 1.8;
+    let alpha;
+    if (announceT > total - fadeDur)       alpha = (total - announceT) / fadeDur;
+    else if (announceT < fadeDur)          alpha = announceT / fadeDur;
+    else                                   alpha = 1;
+
+    ctx.save();
+    ctx.globalAlpha      = Math.max(0, Math.min(1, alpha));
+    ctx.textAlign        = 'center';
+    ctx.textBaseline     = 'middle';
+    ctx.shadowColor      = 'rgba(110,210,255,0.9)';
+    ctx.shadowBlur       = 28;
+    ctx.fillStyle        = 'white';
+    ctx.font             = `bold ${Math.round(W * 0.09)}px -apple-system, Arial`;
+    ctx.fillText(`스테이지 ${stageIdx + 1}`, CX, CY - 28);
+    ctx.shadowBlur       = 12;
+    ctx.font             = `${Math.round(W * 0.042)}px -apple-system, Arial`;
+    ctx.fillStyle        = 'rgba(255,255,255,0.7)';
+    ctx.fillText(STAGES[stageIdx].desc, CX, CY + 22);
+    ctx.restore();
+  }
+
+  function drawClearBanner() {
+    if (state !== 'cleared') return;
+    // clearTimer goes 2.2 → 0
+    let a;
+    if (clearTimer > 1.8)      a = (2.2 - clearTimer) / 0.4;
+    else if (clearTimer < 0.5) a = clearTimer / 0.5;
+    else                       a = 1;
+    a = Math.max(0, Math.min(1, a));
+
+    // Flash tint
+    const tint = a * 0.15;
+    ctx.fillStyle = `rgba(110,210,255,${tint})`;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha      = a;
+    ctx.textAlign        = 'center';
+    ctx.textBaseline     = 'middle';
+    ctx.shadowColor      = 'rgba(110,210,255,1)';
+    ctx.shadowBlur       = 38;
+    ctx.fillStyle        = 'white';
+    ctx.font             = `bold ${Math.round(W * 0.11)}px -apple-system, Arial`;
+    ctx.fillText('CLEAR! 🎉', CX, CY * 0.62);
+    ctx.restore();
+  }
+
+  /* ═══════════════════════════════════════════════════
+     GAME LOGIC
+  ═══════════════════════════════════════════════════ */
+  function startGame() {
+    stageIdx = 0; lives = 3; parts = [];
+    hideOverlay();
+    beginStage();
+  }
+
+  function beginStage() {
+    const cfg   = STAGES[stageIdx];
+    timer        = cfg.time;
+    state        = 'playing';
+    announceT    = 1.8;
+    planets      = Array.from({ length: cfg.n }, (_, i) =>
+                     makePlanet(i, cfg.n, cfg.arc));
+    updateHUD();
+  }
+
+  function updateHUD() {
+    document.getElementById('hStage').textContent = `스테이지 ${stageIdx + 1}`;
+    document.getElementById('hTimer').textContent = `⏱ ${Math.ceil(timer)}`;
+    document.getElementById('hLives').textContent =
+      '❤️'.repeat(Math.max(0, lives));
+  }
+
+  function onTimeout() {
+    lives--;
+    document.getElementById('hLives').textContent =
+      '❤️'.repeat(Math.max(0, lives));
+    if (lives <= 0) {
+      state = 'over';
+      showOverlay(
+        '💫 게임 오버',
+        `스테이지 ${stageIdx + 1}에서 멈췄어요!<br>다시 도전해봐요! 💪`,
+        '다시 시작'
+      );
+    } else {
+      beginStage();
+    }
+  }
+
+  function onStageClear() {
+    state      = 'cleared';
+    clearTimer = 2.2;
+  }
+
+  function advanceStage() {
+    stageIdx++;
+    if (stageIdx >= STAGES.length) {
+      state = 'won';
+      showOverlay(
+        '🏆 전체 클리어!',
+        '모든 행성이 집으로 돌아왔어요!<br>완벽해요! ✨🪐',
+        '다시 하기'
+      );
+    } else {
+      beginStage();
+    }
+  }
+
+  function showOverlay(title, desc, btn) {
+    document.getElementById('ovTitle').textContent    = title;
+    document.getElementById('ovDesc').innerHTML       = desc;
+    document.getElementById('ovBtn').textContent      = btn;
+    document.getElementById('overlay').classList.remove('hidden');
+  }
+  function hideOverlay() {
+    document.getElementById('overlay').classList.add('hidden');
+  }
+
+  /* ═══════════════════════════════════════════════════
+     INPUT
+  ═══════════════════════════════════════════════════ */
+  function onTap(x, y) {
+    if (state !== 'playing') return;
+    for (const p of planets) {
+      const dx = x - pX(p), dy = y - pY(p);
+      if (Math.hypot(dx, dy) < p.vr + 14) {
+        boostPlanet(p);
+        return;
+      }
+    }
+  }
+
+  function boostPlanet(p) {
+    if (p.stopped) return;
+    p.boostLeft = 0.8;
+    p.boosting  = true;
+  }
+
+  cv.addEventListener('click', e => onTap(e.clientX, e.clientY));
+  cv.addEventListener('touchstart', e => {
+    e.preventDefault();
+    onTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+  }, { passive: false });
+
+  document.getElementById('ovBtn').addEventListener('click', startGame);
+  document.getElementById('ovBtn').addEventListener('touchend', e => {
+    e.preventDefault();
+    startGame();
+  });
+
+  /* ═══════════════════════════════════════════════════
+     MAIN LOOP
+  ═══════════════════════════════════════════════════ */
+  function loop(ts) {
+    if (!lastTs) lastTs = ts;
+    const dt = Math.min((ts - lastTs) / 1000, MAX_FRAME_DT);
+    lastTs = ts;
+    const t = ts / 1000;
+
+    /* — Update — */
+    updateParts(dt);
+
+    if (state === 'playing') {
+      timer -= dt;
+      if (timer <= 0) {
+        timer = 0;
+        onTimeout();
+      } else {
+        if (announceT > 0) announceT -= dt;
+        planets.forEach(p => updatePlanet(p, dt));
+        if (planets.every(p => p.stopped)) onStageClear();
+      }
+      document.getElementById('hTimer').textContent = `⏱ ${Math.ceil(timer)}`;
+
+    } else if (state === 'cleared') {
+      planets.forEach(p => updatePlanet(p, dt));
+      clearTimer -= dt;
+      if (clearTimer <= 0) advanceStage();
+    }
+
+    /* — Draw — */
+    drawBg(t);
+
+    if (state === 'playing' || state === 'cleared') {
+      planets.forEach(p => drawOrbit(p));
+      drawSun();
+      planets.forEach(p => drawMovingPlanet(p));
+      planets.forEach(p => drawStoppedPlanet(p));
+      drawParts();
+      drawTimerWarning();
+      drawProgressBar();
+      drawAnnounce();
+      drawClearBanner();
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

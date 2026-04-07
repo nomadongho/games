@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>ALIEN ASSAULT 2185</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <div id="controls-hint">
+    <span>MOVE: ← → / A D</span>
+    <span>JUMP: Space / W / ↑ (Double-jump OK)</span>
+    <span>DASH: Shift</span>
+    <span>SHOOT: X / Z / J</span>
+    <span>SWITCH WEAPON: 1 2 3 4</span>
+  </div>
+
+  <!-- Mobile touch controls (shown only on touch devices via CSS) -->
+  <div id="mobile-controls">
+    <div id="m-dpad">
+      <button class="m-btn" id="m-left">◀</button>
+      <button class="m-btn" id="m-right">▶</button>
+    </div>
+    <div id="m-actions">
+      <div id="m-weapons">
+        <button class="m-btn m-btn-xs" id="m-w1">1</button>
+        <button class="m-btn m-btn-xs" id="m-w2">2</button>
+        <button class="m-btn m-btn-xs" id="m-w3">3</button>
+        <button class="m-btn m-btn-xs" id="m-w4">4</button>
+      </div>
+      <div id="m-action-row">
+        <button class="m-btn m-btn-sm" id="m-dash">DASH</button>
+        <button class="m-btn" id="m-jump">↑</button>
+        <button class="m-btn" id="m-fire">FIRE</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

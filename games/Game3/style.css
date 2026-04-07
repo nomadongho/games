@@ -1,0 +1,126 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: monospace;
+  overflow: hidden;
+}
+
+#game-wrapper {
+  position: relative;
+  line-height: 0;
+  box-shadow: 0 0 40px rgba(0, 170, 255, 0.4);
+  border: 1px solid #1a3a5a;
+}
+
+#gameCanvas {
+  display: block;
+  image-rendering: pixelated;
+  /* Scales the 800×450 canvas to fill the viewport while keeping 16:9 */
+  max-width: min(100vw, calc(100vh * 16 / 9));
+  max-height: min(100vh, calc(100vw * 9 / 16));
+  width:  min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+}
+
+#controls-hint {
+  margin-top: 8px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  color: #446688;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Mobile touch controls ───────────────────────────────── */
+#mobile-controls {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 12px 12px;
+  pointer-events: none;
+  z-index: 10;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+@media (pointer: coarse) {
+  #mobile-controls { display: flex; }
+  #controls-hint   { display: none; }
+}
+
+.m-btn {
+  pointer-events: auto;
+  background: rgba(0, 15, 50, 0.5);
+  border: 2px solid rgba(68, 170, 255, 0.5);
+  border-radius: 10px;
+  color: rgba(68, 170, 255, 0.9);
+  font-family: monospace;
+  font-weight: bold;
+  font-size: 20px;
+  width: 72px;
+  height: 72px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.m-btn-sm {
+  width: 60px;
+  height: 60px;
+  font-size: 14px;
+}
+
+.m-btn-xs {
+  width: 44px;
+  height: 44px;
+  font-size: 13px;
+}
+
+.m-btn:active {
+  background: rgba(68, 170, 255, 0.35);
+  border-color: rgba(68, 170, 255, 0.9);
+}
+
+#m-dpad {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+
+#m-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+#m-weapons {
+  display: flex;
+  gap: 4px;
+}
+
+#m-action-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}

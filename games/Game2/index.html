@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Quantum Cascade ⚛</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    #gameCanvas {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* ── HUD ──────────────────────────────────────────── */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: env(safe-area-inset-top, 8px) 16px 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .hud-box {
+      text-align: center;
+      min-width: 90px;
+    }
+
+    .hud-label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .hud-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 12px rgba(120, 200, 255, 0.9);
+      line-height: 1.1;
+    }
+
+    /* danger bar at the bottom */
+    #dangerBar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      z-index: 20;
+    }
+    #dangerFill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #00ffcc, #ff0080);
+      transition: background 0.3s;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* ── OVERLAY SCREENS ─────────────────────────────── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      background: radial-gradient(ellipse at center, rgba(5,5,30,0.92) 0%, rgba(0,0,0,0.97) 100%);
+      gap: 18px;
+      padding: 24px;
+    }
+
+    .screen.hidden { display: none; }
+
+    .screen-title {
+      font-size: clamp(36px, 10vw, 54px);
+      font-weight: 900;
+      letter-spacing: 4px;
+      text-align: center;
+      background: linear-gradient(135deg, #00ffcc, #7b61ff, #ff0080, #ffcc00);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 20px rgba(123,97,255,0.6));
+      animation: titlePulse 3s ease-in-out infinite;
+    }
+
+    @keyframes titlePulse {
+      0%,100% { filter: drop-shadow(0 0 20px rgba(123,97,255,0.6)); }
+      50%      { filter: drop-shadow(0 0 40px rgba(0,255,204,0.8)); }
+    }
+
+    .screen-subtitle {
+      font-size: clamp(13px, 3.5vw, 16px);
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      max-width: 320px;
+      line-height: 1.6;
+    }
+
+    .screen-score {
+      font-size: clamp(48px, 14vw, 72px);
+      font-weight: 900;
+      color: #ffcc00;
+      text-shadow: 0 0 30px rgba(255,204,0,0.7);
+    }
+
+    .btn {
+      padding: 16px 48px;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      background: linear-gradient(135deg, #7b61ff, #00ffcc);
+      color: #000;
+      box-shadow: 0 0 30px rgba(123,97,255,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+      transition: transform 0.15s, box-shadow 0.15s;
+      min-width: 200px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+      box-shadow: 0 0 15px rgba(123,97,255,0.3);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: rgba(255,255,255,0.6);
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: none;
+      font-size: 14px;
+      padding: 12px 32px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      max-width: 340px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+    }
+
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .best-label {
+      font-size: 13px;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .best-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: rgba(255,204,0,0.75);
+    }
+
+    /* combo toast */
+    #comboToast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      font-size: clamp(32px, 10vw, 52px);
+      font-weight: 900;
+      letter-spacing: 3px;
+      pointer-events: none;
+      z-index: 25;
+      text-align: center;
+      color: #ffcc00;
+      text-shadow: 0 0 30px rgba(255,204,0,0.9);
+      opacity: 0;
+      transition: none;
+      white-space: nowrap;
+    }
+
+    /* level up flash */
+    #levelFlash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 22;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-box">
+      <div class="hud-label">Score</div>
+      <div class="hud-value" id="scoreDisplay">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Level</div>
+      <div class="hud-value" id="levelDisplay">1</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Best</div>
+      <div class="hud-value" id="bestDisplay">0</div>
+    </div>
+  </div>
+
+  <div id="dangerBar"><div id="dangerFill"></div></div>
+
+  <!-- Combo toast -->
+  <div id="comboToast"></div>
+  <div id="levelFlash"></div>
+
+  <!-- MENU SCREEN -->
+  <div class="screen" id="menuScreen">
+    <div class="screen-title">QUANTUM<br>CASCADE</div>
+    <div class="screen-subtitle">
+      퀀텀 오브들이 자동으로 결합합니다.<br>
+      같은 색끼리 연결된 클러스터를 탭해 붕괴시키세요!<br>
+      클러스터가 클수록 점수가 <strong style="color:#ffcc00">폭발적으로</strong> 증가합니다.
+    </div>
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#00ffcc;box-shadow:0 0 6px #00ffcc"></div>
+        일반 오브
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#fff;box-shadow:0 0 6px #fff"></div>
+        ⚡ 펄스 (전체 링크)
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#222;box-shadow:0 0 6px #ff0080;border:2px solid #ff0080"></div>
+        🕳 보이드 (흡수)
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);box-shadow:0 0 6px #fff"></div>
+        🌈 프리즘 (와일드카드)
+      </div>
+    </div>
+    <button class="btn" id="startBtn">START GAME</button>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="best-label">Best Score</div>
+      <div class="best-value" id="menuBest">0</div>
+    </div>
+  </div>
+
+  <!-- GAME OVER SCREEN -->
+  <div class="screen hidden" id="gameoverScreen">
+    <div class="screen-title" style="font-size:clamp(28px,8vw,42px)">GAME OVER</div>
+    <div class="screen-subtitle">화면이 가득 찼습니다!</div>
+    <div class="screen-score" id="finalScore">0</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="best-label" id="newBestLabel" style="display:none;color:#ffcc00;font-size:15px;letter-spacing:3px">🏆 NEW BEST!</div>
+      <div class="best-label">Best Score</div>
+      <div class="best-value" id="gameoverBest">0</div>
+    </div>
+    <button class="btn" id="restartBtn">PLAY AGAIN</button>
+    <button class="btn btn-secondary" id="menuBtn">MENU</button>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

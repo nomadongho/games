@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>PULSE — Echo Chain</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      font-family: 'Courier New', Courier, monospace;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    #wrap {
+      position: relative;
+    }
+    canvas { display: block; }
+    #hud {
+      position: absolute; top: 0; left: 0; width: 100%;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px;
+      pointer-events: none;
+    }
+    #score  { font-size: clamp(16px,4vw,22px); color: #0ff; text-shadow: 0 0 8px #0ff; }
+    #lives  { font-size: clamp(16px,4vw,22px); color: #f55; letter-spacing: 2px; }
+    #stageLabel {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      font-size: clamp(11px,3vw,15px); color: rgba(255,255,255,0.5);
+      letter-spacing: 3px; pointer-events: none;
+    }
+    /* overlay screens */
+    .overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 20px;
+      background: rgba(6,6,18,0.92);
+      cursor: pointer;
+    }
+    .overlay h1 {
+      font-size: clamp(36px,10vw,56px);
+      color: #0ff; text-shadow: 0 0 24px #0ff, 0 0 60px #0ff4;
+      letter-spacing: 6px;
+    }
+    .overlay .sub {
+      font-size: clamp(12px,3.2vw,16px);
+      color: rgba(255,255,255,0.65);
+      text-align: center; line-height: 1.7; max-width: 300px;
+    }
+    .overlay .btn {
+      margin-top: 8px;
+      font-family: inherit; font-size: clamp(14px,3.5vw,17px);
+      color: #050510; background: #0ff;
+      border: none; border-radius: 999px;
+      padding: 11px 36px; letter-spacing: 2px;
+      cursor: pointer; box-shadow: 0 0 16px #0ff8;
+      animation: pulse-btn 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse-btn {
+      0%,100% { box-shadow: 0 0 14px #0ff8; }
+      50%      { box-shadow: 0 0 32px #0ffc, 0 0 60px #0ff4; }
+    }
+    .overlay .combo-tip {
+      font-size: clamp(11px,2.8vw,14px);
+      color: #ff0; text-shadow: 0 0 6px #ff0;
+      letter-spacing: 1px;
+    }
+    /* chain popup */
+    #chainPop {
+      position: absolute; left: 50%; top: 40%;
+      transform: translateX(-50%);
+      font-size: clamp(20px,5.5vw,32px);
+      color: #ff0; text-shadow: 0 0 14px #ff0;
+      pointer-events: none;
+      opacity: 0;
+    }
+    #chainPop.show { animation: chain-anim 0.7s forwards; }
+    @keyframes chain-anim {
+      0%   { opacity:1; transform: translateX(-50%) scale(1.4); }
+      70%  { opacity:1; transform: translateX(-50%) scale(1); }
+      100% { opacity:0; transform: translateX(-50%) translateY(-20px) scale(0.8); }
+    }
+    /* hidden by default */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="score">0</div>
+    <div id="lives">♥♥♥</div>
+  </div>
+  <div id="stageLabel">STAGE 1</div>
+
+  <!-- chain popup -->
+  <div id="chainPop"></div>
+
+  <!-- Title overlay -->
+  <div class="overlay" id="titleScreen">
+    <h1>PULSE</h1>
+    <p class="sub">
+      에코 체인 아레나<br><br>
+      🔴 빨간 링 박동 때 빨간 적을 처치<br>
+      🔵 파란 링 박동 때 파란 적을 처치<br>
+      🟢 초록 링 박동 때 초록 적을 처치<br><br>
+      타이밍이 맞으면 <span style="color:#ff0">CRITICAL</span> 히트!<br>
+      에코 체인으로 연속 처치 보너스!
+    </p>
+    <button class="btn" id="startBtn">시작하기</button>
+  </div>
+
+  <!-- Stage clear overlay -->
+  <div class="overlay hidden" id="clearScreen">
+    <h1 style="color:#0f0;text-shadow:0 0 24px #0f0,0 0 60px #0f04;">CLEAR!</h1>
+    <p class="sub" id="clearMsg"></p>
+    <button class="btn" style="background:#0f0;box-shadow:0 0 16px #0f08" id="nextBtn">다음 스테이지</button>
+  </div>
+
+  <!-- Game over overlay -->
+  <div class="overlay hidden" id="gameOverScreen">
+    <h1 style="color:#f55;text-shadow:0 0 24px #f55,0 0 60px #f554;">GAME OVER</h1>
+    <p class="sub" id="goMsg"></p>
+    <button class="btn" style="background:#f55;box-shadow:0 0 16px #f558" id="retryBtn">다시하기</button>
+  </div>
+
+  <!-- Final clear overlay -->
+  <div class="overlay hidden" id="finalScreen">
+    <h1 style="font-size:clamp(28px,7vw,44px);color:#ff0;text-shadow:0 0 24px #ff0">ALL CLEAR!</h1>
+    <p class="sub" id="finalMsg"></p>
+    <button class="btn" style="background:#ff0;box-shadow:0 0 16px #ff08" id="playAgainBtn">처음부터</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════
+// PULSE — Echo Chain Arena Defense
+// Novel mechanic: Beat-sync resonance rings + echo chain kills
+// ══════════════════════════════════════════════════════════════
+
+// ── Setup ────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('wrap');
+
+const SIZE = Math.min(window.innerWidth, window.innerHeight, 600);
+canvas.width = canvas.height = SIZE;
+wrap.style.width = wrap.style.height = SIZE + 'px';
+const C = SIZE / 2;  // center
+
+// ── Ring definitions (3 resonance rings) ────────────────────
+// The novel mechanic: each ring pulses on its own rhythm.
+// Killing an enemy that matches the ring's color WHILE that
+// ring is glowing → CRITICAL HIT + echo ring spawned.
+const RINGS = [
+  { r: SIZE * 0.215, period: 1.2, color: '#ff5555', glow: '#ff222266', type: 'r' },
+  { r: SIZE * 0.395, period: 2.0, color: '#5588ff', glow: '#2244ff44', type: 'b' },
+  { r: SIZE * 0.570, period: 3.1, color: '#44ff88', glow: '#22ff5533', type: 'g' },
+];
+const GLOW_DUR   = 0.22; // seconds ring glows after beat
+const CRYSTAL_R  = SIZE * 0.048;
+
+// ── Enemy type config ─────────────────────────────────────────
+const ETYPES = {
+  r: { color: '#ff5555', ring: 0, hp: 1, r: SIZE * 0.030, score: 10, label: '●' },
+  b: { color: '#5599ff', ring: 1, hp: 2, r: SIZE * 0.032, score: 20, label: '◆' },
+  g: { color: '#44ff88', ring: 2, hp: 1, r: SIZE * 0.028, score: 15, label: '▲' },
+  t: { color: '#ff9922', ring: -1, hp: 3, r: SIZE * 0.040, score: 35, label: '★' }, // tank, no ring bonus
+};
+
+// ── Stage definitions ─────────────────────────────────────────
+function wt(arr, n) {
+  const out = [];
+  const keys = arr.map(a => a[0]);
+  const wts  = arr.map(a => a[1]);
+  const total = wts.reduce((a,b)=>a+b, 0);
+  for (let i = 0; i < n; i++) {
+    let r = Math.random() * total;
+    for (let j = 0; j < keys.length; j++) {
+      r -= wts[j];
+      if (r <= 0) { out.push(keys[j]); break; }
+    }
+    if (out.length <= i) out.push(keys[0]);
+  }
+  return out;
+}
+
+const STAGES = [
+  { n:1,  count:5,  spawnI:2.5, speed:32, types: () => Array(5).fill('r') },
+  { n:2,  count:7,  spawnI:2.3, speed:37, types: () => wt([['r',3],['b',1]], 7) },
+  { n:3,  count:9,  spawnI:2.1, speed:42, types: () => wt([['r',2],['b',2],['g',1]], 9) },
+  { n:4,  count:11, spawnI:1.9, speed:47, types: () => wt([['r',2],['b',2],['g',2],['t',1]], 11) },
+  { n:5,  count:13, spawnI:1.8, speed:52, types: () => wt([['r',2],['b',2],['g',2],['t',2]], 13) },
+  { n:6,  count:16, spawnI:1.6, speed:57, types: () => wt([['r',2],['b',2],['g',2],['t',2]], 16) },
+  { n:7,  count:18, spawnI:1.5, speed:62, types: () => wt([['r',1],['b',2],['g',2],['t',3]], 18) },
+  { n:8,  count:22, spawnI:1.3, speed:68, types: () => wt([['r',1],['b',2],['g',2],['t',3]], 22) },
+  { n:9,  count:26, spawnI:1.1, speed:76, types: () => wt([['r',1],['b',2],['g',2],['t',4]], 26) },
+  { n:10, count:35, spawnI:0.9, speed:88, types: () => wt([['r',1],['b',2],['g',2],['t',4]], 35) },
+];
+
+// ── Game state ────────────────────────────────────────────────
+let gameState  = 'TITLE';
+let stageN     = 1;
+let score      = 0;
+let lives      = 3;
+let lastTs     = 0;
+let stageTimer = 0;
+
+// Ring beat timers
+let ringTimers  = [0, 0, 0];
+let ringGlowing = [false, false, false];
+let ringGlowT   = [0, 0, 0];
+let crystalFlash = 0;
+
+// Entity arrays
+let enemies    = [];
+let pulses     = [];
+let echoes     = [];
+let particles  = [];
+let scoreTexts = [];
+
+// Spawn state
+let spawnQueue = [];
+let spawnTimer = 0;
+let killsNeeded = 0;
+let killCount  = 0;
+
+// Chain state
+let chainCount = 0;
+let chainTimer = 0;
+const CHAIN_WIN = 0.6; // seconds to keep chain alive
+
+// Shake
+let shakeT = 0, shakeMag = 0;
+
+// ── Utility ───────────────────────────────────────────────────
+const rand  = (a, b) => Math.random() * (b - a) + a;
+const dist  = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function spawnParticles(x, y, color, n = 8) {
+  for (let i = 0; i < n; i++) {
+    const ang = rand(0, Math.PI * 2);
+    const spd = rand(SIZE * 0.04, SIZE * 0.13);
+    particles.push({ x, y, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
+      r: rand(SIZE*0.006, SIZE*0.015), color, alpha: 1, decay: rand(1.8, 3.0) });
+  }
+}
+
+function showChainPop(n) {
+  const el = document.getElementById('chainPop');
+  el.textContent = n >= 5 ? `🔥 CHAIN ×${n}!!` : `CHAIN ×${n}!`;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function triggerShake(mag) {
+  shakeT = 0.25;
+  shakeMag = Math.max(shakeMag, mag);
+}
+
+// ── Ring beat update ──────────────────────────────────────────
+function updateRings(dt) {
+  for (let i = 0; i < RINGS.length; i++) {
+    ringTimers[i] += dt;
+    if (ringTimers[i] >= RINGS[i].period) {
+      ringTimers[i] -= RINGS[i].period;
+      ringGlowing[i] = true;
+      ringGlowT[i]   = GLOW_DUR;
+    }
+    if (ringGlowing[i]) {
+      ringGlowT[i] -= dt;
+      if (ringGlowT[i] <= 0) {
+        ringGlowing[i] = false;
+        ringGlowT[i]   = 0;
+      }
+    }
+  }
+}
+
+// ── Spawning ──────────────────────────────────────────────────
+function initStage(n) {
+  const def = STAGES[n - 1];
+  spawnQueue = def.types();
+  spawnTimer = 0;
+  killsNeeded = spawnQueue.length;
+  killCount   = 0;
+  enemies     = [];
+  pulses      = [];
+  echoes      = [];
+  particles   = [];
+  scoreTexts  = [];
+  chainCount  = 0;
+  chainTimer  = 0;
+  document.getElementById('stageLabel').textContent = `STAGE ${n}`;
+}
+
+function spawnEnemy(type) {
+  const def  = STAGES[stageN - 1];
+  const cfg  = ETYPES[type];
+  const ang  = rand(0, Math.PI * 2);
+  const spawnR = SIZE * 0.62; // just outside arena
+  const x  = C + Math.cos(ang) * spawnR;
+  const y  = C + Math.sin(ang) * spawnR;
+  const speed = def.speed * (0.85 + Math.random() * 0.30);
+  enemies.push({ x, y, type, hp: cfg.hp, maxHp: cfg.hp,
+    r: cfg.r, color: cfg.color, speed,
+    ang: Math.atan2(C - y, C - x), // angle toward center
+    hitFlash: 0 });
+}
+
+// ── Player pulse ──────────────────────────────────────────────
+function createPulse(x, y) {
+  pulses.push({ x, y, r: SIZE * 0.015, maxR: SIZE * 0.48,
+    speed: SIZE * 0.55, width: SIZE * 0.028, alpha: 1.0, dead: false });
+}
+
+// ── Echo ring (from critical kills) ──────────────────────────
+function createEcho(x, y, color) {
+  echoes.push({ x, y, r: SIZE * 0.018, maxR: SIZE * 0.36,
+    speed: SIZE * 0.38, width: SIZE * 0.018, alpha: 0.85,
+    color, dead: false });
+}
+
+// ── Collision: pulse/echo vs enemy ───────────────────────────
+function ringHitsEnemy(ring_x, ring_y, ring_r, ring_w, ex, ey, er) {
+  const d = dist(ring_x, ring_y, ex, ey);
+  return d >= ring_r - ring_w * 0.5 - er && d <= ring_r + ring_w * 0.5 + er;
+}
+
+function hitEnemy(enemy, isCritical, fromEcho) {
+  enemy.hp--;
+  enemy.hitFlash = 0.12;
+  if (enemy.hp <= 0) {
+    // Dead → spawn particles + score text
+    const cfg   = ETYPES[enemy.type];
+    const bonus = isCritical ? 2 : 1;
+    const chain = Math.min(chainCount + 1, 15);
+    const echoBonus = fromEcho ? 1.5 : 1; // echo chain kills reward more points
+    const pts   = Math.round(cfg.score * bonus * echoBonus) + (chain > 2 ? (chain - 2) * 5 : 0);
+    score += pts;
+
+    spawnParticles(enemy.x, enemy.y, enemy.color, isCritical ? 14 : 8);
+    if (isCritical) {
+      spawnParticles(enemy.x, enemy.y, '#ffff00', 6);
+      createEcho(enemy.x, enemy.y, enemy.color);
+    }
+
+    scoreTexts.push({
+      x: enemy.x, y: enemy.y - SIZE * 0.03,
+      text: (isCritical ? '💥 ' : '') + '+' + pts,
+      color: isCritical ? '#ffff00' : '#ffffff',
+      alpha: 1, vy: -SIZE * 0.06, life: 1.2,
+    });
+
+    // Chain tracking
+    chainCount = chain;
+    chainTimer = CHAIN_WIN;
+    if (chainCount >= 2) showChainPop(chainCount);
+    if (chainCount >= 4) triggerShake(isCritical ? 6 : 3);
+
+    killCount++;
+    return true; // enemy dead
+  }
+  return false;
+}
+
+// ── Update loop ───────────────────────────────────────────────
+function update(dt) {
+  // Spawn
+  const def = STAGES[stageN - 1];
+  if (spawnQueue.length > 0) {
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnEnemy(spawnQueue.shift());
+      spawnTimer = def.spawnI;
+    }
+  }
+
+  // Ring beats
+  updateRings(dt);
+
+  // Chain decay
+  if (chainTimer > 0) {
+    chainTimer -= dt;
+    if (chainTimer <= 0) chainCount = 0;
+  }
+
+  // Crystal flash
+  if (crystalFlash > 0) crystalFlash -= dt;
+
+  // Shake
+  if (shakeT > 0) { shakeT -= dt; if (shakeT <= 0) shakeMag = 0; }
+
+  // Enemies
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    // steer slightly toward center
+    const angleToCenter = Math.atan2(C - e.y, C - e.x);
+    e.ang = angleToCenter; // lock to center for simplicity
+    e.x += Math.cos(e.ang) * e.speed * dt;
+    e.y += Math.sin(e.ang) * e.speed * dt;
+    // reached center?
+    if (dist(e.x, e.y, C, C) < CRYSTAL_R + e.r * 0.6) {
+      enemies.splice(i, 1);
+      lives--;
+      crystalFlash = 0.5;
+      triggerShake(10);
+      if (lives <= 0) { lives = 0; gameOver(); return; }
+      updateHUD();
+    }
+  }
+
+  // Pulses
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    p.r += p.speed * dt;
+    p.alpha = clamp(1 - p.r / p.maxR, 0, 1);
+    if (p.r >= p.maxR) { pulses.splice(i, 1); continue; }
+    // hit enemies
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      const e = enemies[j];
+      if (!ringHitsEnemy(p.x, p.y, p.r, p.width, e.x, e.y, e.r)) continue;
+      // Check if ring matching enemy type is glowing → critical
+      const eRingIdx = ETYPES[e.type].ring;
+      const isCrit = eRingIdx >= 0 && ringGlowing[eRingIdx];
+      const dead = hitEnemy(e, isCrit, false);
+      if (dead) enemies.splice(j, 1);
+    }
+  }
+
+  // Echoes
+  for (let i = echoes.length - 1; i >= 0; i--) {
+    const ec = echoes[i];
+    ec.r += ec.speed * dt;
+    ec.alpha = clamp(0.85 * (1 - ec.r / ec.maxR), 0, 0.85);
+    if (ec.r >= ec.maxR) { echoes.splice(i, 1); continue; }
+    // hit enemies
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      const e = enemies[j];
+      if (!ringHitsEnemy(ec.x, ec.y, ec.r, ec.width, e.x, e.y, e.r)) continue;
+      const dead = hitEnemy(e, false, true);
+      if (dead) enemies.splice(j, 1);
+    }
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= (1 - 3 * dt);
+    p.vy *= (1 - 3 * dt);
+    p.alpha -= p.decay * dt;
+    if (p.alpha <= 0) particles.splice(i, 1);
+  }
+
+  // Score texts
+  for (let i = scoreTexts.length - 1; i >= 0; i--) {
+    const t = scoreTexts[i];
+    t.y += t.vy * dt;
+    t.life -= dt;
+    t.alpha = clamp(t.life * 1.2, 0, 1);
+    if (t.life <= 0) scoreTexts.splice(i, 1);
+  }
+
+  // Check stage clear
+  if (killCount >= killsNeeded && enemies.length === 0 && spawnQueue.length === 0) {
+    stageClear();
+  }
+
+  // Update HUD score
+  document.getElementById('score').textContent = score;
+}
+
+// ── Drawing ───────────────────────────────────────────────────
+function draw() {
+  ctx.save();
+
+  // Shake transform
+  if (shakeT > 0) {
+    const mag = shakeMag * (shakeT / 0.25);
+    ctx.translate(rand(-mag, mag), rand(-mag, mag));
+  }
+
+  // Background
+  ctx.fillStyle = '#060612';
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  // Resonance rings (drawn faintly always, glow when active)
+  for (let i = 0; i < RINGS.length; i++) {
+    const ring = RINGS[i];
+    const frac = ringGlowing[i] ? ringGlowT[i] / GLOW_DUR : 0;
+
+    // Subtle ambient ring
+    ctx.beginPath();
+    ctx.arc(C, C, ring.r, 0, Math.PI * 2);
+    ctx.strokeStyle = ring.color + '33';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Glow bloom when beating
+    if (ringGlowing[i] && frac > 0) {
+      const alpha = Math.min(frac * 1.6, 1);
+      ctx.beginPath();
+      ctx.arc(C, C, ring.r, 0, Math.PI * 2);
+      ctx.strokeStyle = ring.color + Math.round(alpha * 255).toString(16).padStart(2,'0');
+      ctx.lineWidth = clamp(frac * 14, 2, 14);
+      ctx.shadowBlur = 24 * frac;
+      ctx.shadowColor = ring.color;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // inner fill flash
+      ctx.beginPath();
+      ctx.arc(C, C, ring.r, 0, Math.PI * 2);
+      ctx.fillStyle = ring.color + Math.round(alpha * 18).toString(16).padStart(2,'0');
+      ctx.fill();
+    }
+  }
+
+  // Arena boundary
+  ctx.beginPath();
+  ctx.arc(C, C, SIZE * 0.49, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(100,100,200,0.18)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Echoes
+  for (const ec of echoes) {
+    ctx.beginPath();
+    ctx.arc(ec.x, ec.y, ec.r, 0, Math.PI * 2);
+    ctx.strokeStyle = ec.color + Math.round(ec.alpha * 255).toString(16).padStart(2,'0');
+    ctx.lineWidth = ec.width;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = ec.color;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Player pulses
+  for (const p of pulses) {
+    const a = p.alpha;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0,255,255,${a * 0.9})`;
+    ctx.lineWidth = p.width * (0.5 + a * 0.5);
+    ctx.shadowBlur = 18 * a;
+    ctx.shadowColor = '#0ff';
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // Crystal
+  const crystalPulse = 0.85 + 0.15 * Math.sin(Date.now() * 0.003);
+  const cFlash = clamp(crystalFlash * 2.5, 0, 1);
+  const crystalColor = cFlash > 0
+    ? `rgb(255,${Math.round(200*(1-cFlash))},${Math.round(200*(1-cFlash))})`
+    : '#0ff';
+  ctx.beginPath();
+  ctx.arc(C, C, CRYSTAL_R * crystalPulse, 0, Math.PI * 2);
+  ctx.fillStyle = crystalColor + '55';
+  ctx.shadowBlur = 20 + 10 * crystalPulse;
+  ctx.shadowColor = cFlash > 0 ? '#ff4444' : '#0ff';
+  ctx.fill();
+  ctx.strokeStyle = crystalColor;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Lives as dots in crystal
+  for (let i = 0; i < lives; i++) {
+    const a = (i - 1) * (Math.PI * 2 / 3);
+    const dx = Math.cos(a) * CRYSTAL_R * 0.42;
+    const dy = Math.sin(a) * CRYSTAL_R * 0.42;
+    ctx.beginPath();
+    ctx.arc(C + dx, C + dy, CRYSTAL_R * 0.14, 0, Math.PI * 2);
+    ctx.fillStyle = '#0ff';
+    ctx.fill();
+  }
+
+  // Enemies
+  for (const e of enemies) {
+    const cfg = ETYPES[e.type];
+    const flash = e.hitFlash > 0 ? e.hitFlash / 0.12 : 0;
+    const col = flash > 0.5 ? '#ffffff' : e.color;
+
+    ctx.save();
+    ctx.translate(e.x, e.y);
+
+    // HP bar (for multi-hp enemies)
+    if (cfg.hp > 1) {
+      const bw = e.r * 2.2;
+      ctx.fillStyle = '#333';
+      ctx.fillRect(-bw/2, -e.r - 7, bw, 3);
+      ctx.fillStyle = col;
+      ctx.fillRect(-bw/2, -e.r - 7, bw * (e.hp / Math.max(cfg.hp, 1)), 3);
+    }
+
+    // Body
+    ctx.beginPath();
+    if (e.type === 'g') {
+      // Triangle
+      for (let v = 0; v < 3; v++) {
+        const a = (v / 3) * Math.PI * 2 - Math.PI / 2;
+        v === 0 ? ctx.moveTo(Math.cos(a)*e.r, Math.sin(a)*e.r)
+                : ctx.lineTo(Math.cos(a)*e.r, Math.sin(a)*e.r);
+      }
+      ctx.closePath();
+    } else if (e.type === 'b') {
+      // Diamond
+      ctx.moveTo(0, -e.r);
+      ctx.lineTo(e.r, 0);
+      ctx.lineTo(0, e.r);
+      ctx.lineTo(-e.r, 0);
+      ctx.closePath();
+    } else if (e.type === 't') {
+      // Pentagon
+      for (let v = 0; v < 5; v++) {
+        const a = (v / 5) * Math.PI * 2 - Math.PI / 2;
+        v === 0 ? ctx.moveTo(Math.cos(a)*e.r, Math.sin(a)*e.r)
+                : ctx.lineTo(Math.cos(a)*e.r, Math.sin(a)*e.r);
+      }
+      ctx.closePath();
+    } else {
+      ctx.arc(0, 0, e.r, 0, Math.PI * 2);
+    }
+
+    ctx.fillStyle = col + '44';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = col;
+    ctx.fill();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+  }
+
+  // Particles
+  for (const p of particles) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.alpha, 0, Math.PI * 2);
+    ctx.fillStyle = p.color + Math.round(p.alpha * 255).toString(16).padStart(2,'0');
+    ctx.fill();
+  }
+
+  // Score texts
+  for (const t of scoreTexts) {
+    ctx.font = `bold ${Math.round(SIZE * 0.030)}px 'Courier New'`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = t.color + Math.round(t.alpha * 255).toString(16).padStart(2,'0');
+    ctx.fillText(t.text, t.x, t.y);
+  }
+
+  // Beat indicator icons (small colored circles near each ring label)
+  for (let i = 0; i < RINGS.length; i++) {
+    const ring = RINGS[i];
+    const glowFrac = ringGlowing[i] ? ringGlowT[i] / GLOW_DUR : 0;
+    // small dot at top of ring
+    const dotR = SIZE * 0.018 * (1 + glowFrac * 0.5);
+    const dotY = C - ring.r;
+    ctx.beginPath();
+    ctx.arc(C, dotY, dotR, 0, Math.PI * 2);
+    const baseA = 0.25 + glowFrac * 0.75;
+    ctx.fillStyle = ring.color + Math.round(baseA * 255).toString(16).padStart(2,'0');
+    if (ringGlowing[i]) {
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = ring.color;
+    }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.restore();
+}
+
+// ── HUD update ────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('lives').textContent = '♥'.repeat(lives);
+}
+
+// ── State transitions ─────────────────────────────────────────
+function startGame() {
+  score  = 0;
+  lives  = 3;
+  stageN = 1;
+  updateHUD();
+  initStage(1);
+  ringTimers  = [0, 0.4, 0.8]; // offset so they don't all fire at once
+  ringGlowing = [false, false, false];
+  ringGlowT   = [0, 0, 0];
+  gameState   = 'PLAYING';
+}
+
+function stageClear() {
+  if (gameState !== 'PLAYING') return;
+  gameState = 'STAGE_CLEAR';
+  stageTimer = 0;
+
+  const bonus = stageN * 50;
+  score += bonus;
+  document.getElementById('score').textContent = score;
+
+  if (stageN >= STAGES.length) {
+    // All stages done
+    document.getElementById('finalMsg').innerHTML =
+      `최종 점수: <span style="color:#ff0">${score}</span><br>전 스테이지 클리어!`;
+    document.getElementById('finalScreen').classList.remove('hidden');
+  } else {
+    document.getElementById('clearMsg').innerHTML =
+      `+${bonus} 보너스!<br>현재 점수: <span style="color:#0ff">${score}</span>`;
+    document.getElementById('clearScreen').classList.remove('hidden');
+  }
+}
+
+function nextStage() {
+  document.getElementById('clearScreen').classList.add('hidden');
+  stageN++;
+  initStage(stageN);
+  gameState = 'PLAYING';
+}
+
+function gameOver() {
+  if (gameState !== 'PLAYING') return;
+  gameState = 'GAME_OVER';
+  document.getElementById('goMsg').innerHTML =
+    `스테이지 ${stageN}에서 탈락<br>최종 점수: <span style="color:#f55">${score}</span>`;
+  document.getElementById('gameOverScreen').classList.remove('hidden');
+}
+
+function retryGame() {
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('clearScreen').classList.add('hidden');
+  document.getElementById('finalScreen').classList.add('hidden');
+  startGame();
+}
+
+// ── Input handling ────────────────────────────────────────────
+function handleTap(clientX, clientY) {
+  if (gameState !== 'PLAYING') return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = SIZE / rect.width;
+  const scaleY = SIZE / rect.height;
+  const x = (clientX - rect.left) * scaleX;
+  const y = (clientY - rect.top)  * scaleY;
+  createPulse(x, y);
+}
+
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  handleTap(e.clientX, e.clientY);
+});
+
+// ── Main loop ─────────────────────────────────────────────────
+function loop(ts) {
+  const dt = Math.min((ts - lastTs) / 1000, 0.05);
+  lastTs = ts;
+
+  if (gameState === 'PLAYING') {
+    update(dt);
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── Button wiring ─────────────────────────────────────────────
+document.getElementById('startBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('titleScreen').classList.add('hidden');
+  startGame();
+});
+document.getElementById('nextBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  nextStage();
+});
+document.getElementById('retryBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  retryGame();
+});
+document.getElementById('playAgainBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('finalScreen').classList.add('hidden');
+  retryGame();
+});
+
+// Kick off
+requestAnimationFrame(ts => { lastTs = ts; loop(ts); });
+</script>
+</body>
+</html>

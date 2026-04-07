@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>별의 물결 – Starwave</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- Header -->
+  <div id="header">
+    <div>
+      <div id="stage-label">STAGE</div>
+      <div id="stage-name">로딩 중…</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <div id="seeds-counter"></div>
+      <div id="steps-bar">파동: <span id="steps-value">—</span></div>
+    </div>
+  </div>
+
+  <!-- Hint -->
+  <div id="hint-bar">게임을 불러오는 중…</div>
+
+  <!-- Canvas + overlay wrapper -->
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+    <div id="overlay">
+      <div id="overlay-title">🌟</div>
+      <div id="overlay-sub"></div>
+      <button id="overlay-btn">다음 스테이지</button>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <button class="ctrl-btn" id="reset-btn">↺ 다시 심기</button>
+    <button class="ctrl-btn" id="grow-btn">✨ 성장 시작</button>
+  </div>
+
+  <!-- Stage progress -->
+  <div id="stage-dots"></div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
