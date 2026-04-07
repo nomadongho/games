@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Swap Path</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Courier New', Courier, monospace;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      overflow: hidden;
+    }
+    #wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    #hud {
+      width: 100%; max-width: 430px;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 10px; color: #9ca3af; font-size: clamp(11px,2.8vw,14px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    canvas { display: block; cursor: pointer; border-radius: 10px; }
+    #hintBox {
+      font-size: clamp(10px,2.6vw,12px); color: #6b7280;
+      text-align: center; max-width: 360px; padding: 2px 8px; min-height: 18px;
+    }
+    #btns { display: flex; gap: 10px; }
+    .ibtn {
+      font-family: inherit; font-size: clamp(11px,2.8vw,13px);
+      background: #1a1a2e; color: #9ca3af;
+      border: 1px solid #3d3d6e; border-radius: 99px;
+      padding: 7px 16px; cursor: pointer;
+    }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    .ibtn.active { background: #3d2d8e; border-color: #a78bfa; color: #e9d5ff; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; margin-top: 2px; }
+    a#back:hover { color: #9ca3af; }
+    .ov {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; padding: 24px;
+      background: rgba(6,6,18,0.93); z-index: 10;
+    }
+    .ov h1 {
+      font-size: clamp(26px,8vw,46px); color: #a78bfa;
+      text-shadow: 0 0 24px #a78bfa; letter-spacing: 4px; text-align: center;
+    }
+    .ov p {
+      font-size: clamp(12px,3vw,14px); color: rgba(255,255,255,0.65);
+      text-align: center; line-height: 1.85; max-width: 300px;
+    }
+    .obtn {
+      font-family: inherit; font-size: clamp(13px,3.5vw,15px);
+      color: #050510; background: #a78bfa;
+      border: none; border-radius: 999px;
+      padding: 10px 32px; letter-spacing: 2px; cursor: pointer;
+      animation: pb 1.4s ease-in-out infinite;
+    }
+    @keyframes pb { 0%,100%{box-shadow:0 0 12px #a78bfa88}50%{box-shadow:0 0 28px #a78bfacc} }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>Level <span id="lvlNum">1</span> / 8</div>
+    <div>Swaps left: <span id="swapLeft">—</span></div>
+  </div>
+  <canvas id="c"></canvas>
+  <div id="hintBox"></div>
+  <div id="btns">
+    <button class="ibtn" id="walkBtn">&#9654; Walk</button>
+    <button class="ibtn" id="resetBtn">&#8635; Reset</button>
+  </div>
+  <a id="back" href="../../index.html">&#8592; Back to Games</a>
+</div>
+
+<div class="ov" id="titleScr">
+  <h1>SWAP PATH</h1>
+  <p>Each cell holds an arrow.<br>
+     The walker follows arrows from Start &#9632; to Exit &#9654;.<br><br>
+     <strong style="color:#fbbf24">Tap two cells to swap their arrows.</strong><br>
+     Collect every star &#9733; before reaching the exit.<br><br>
+     Fixed cells (bright border) cannot be swapped.<br>
+     Press Walk to simulate the path.
+  </p>
+  <button class="obtn" id="startBtn">&#9654; Begin</button>
+</div>
+
+<div class="ov hidden" id="clearScr">
+  <h1 style="color:#34d399;text-shadow:0 0 24px #34d399;">CLEAR!</h1>
+  <p id="clearMsg"></p>
+  <button class="obtn" style="background:#34d399;animation:none" id="nextBtn">Next Level &#8594;</button>
+</div>
+
+<div class="ov hidden" id="failScr">
+  <h1 style="color:#f87171;text-shadow:0 0 24px #f87171;">FAILED</h1>
+  <p id="failMsg"></p>
+  <button class="obtn" style="background:#f87171;animation:none" id="retryBtn">Try Again</button>
+</div>
+
+<div class="ov hidden" id="victScr">
+  <h1 style="color:#fbbf24;text-shadow:0 0 24px #fbbf24;">ALL CLEAR!</h1>
+  <p>Every path found!</p>
+  <button class="obtn" style="background:#fbbf24;animation:none" id="playAgainBtn">Play Again</button>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+const SIZE = Math.min(window.innerWidth - 16, window.innerHeight - 160, 380);
+const CELL  = Math.floor(SIZE / 5);
+const W     = CELL * 5;
+canvas.width  = W;
+canvas.height = W;
+canvas.style.width  = W + 'px';
+canvas.style.height = W + 'px';
+
+// Direction: 0=UP 1=RIGHT 2=DOWN 3=LEFT
+const DARR = ['\u2191','\u2192','\u2193','\u2190'];
+const DR   = [-1, 0, 1,  0];
+const DC   = [ 0, 1, 0, -1];
+
+// Cell types
+const T_NORM  = 0;
+const T_START = 1;
+const T_STAR  = 2;
+const T_EXIT  = 3;
+
+// ── Level definitions ──────────────────────────────────────────
+// grid: 5x5 array of {dir, type, fixed}
+// maxSwaps: how many swaps allowed
+
+function G(dir, type, fixed) { return {dir, type: type || T_NORM, fixed: !!fixed}; }
+const N=T_NORM, S=T_START, R=T_STAR, E=T_EXIT;
+
+const LEVELS = [
+  // Level 1: 1 swap, simple detour through star
+  {
+    grid: [
+      [G(2,S,1), G(1),     G(2),     G(3),     G(0)],
+      [G(2),     G(2),     G(2),     G(2),     G(0)],
+      [G(1),     G(1),     G(2),     G(3),     G(3)],
+      [G(1),     G(1,R,1), G(3),     G(0),     G(0)],
+      [G(1),     G(1),     G(1,E,1), G(1),     G(0)]
+    ],
+    maxSwaps: 2,
+    hint: 'The walker goes straight past the star — swap arrows to detour through it'
+  },
+  // Level 2: swap to avoid a loop
+  {
+    grid: [
+      [G(2,S,1), G(2),     G(3),     G(0),     G(1)],
+      [G(1),     G(1),     G(0),     G(1),     G(2)],
+      [G(1),     G(2),     G(1,R,1), G(2),     G(3)],
+      [G(0),     G(3),     G(1),     G(3),     G(0)],
+      [G(1),     G(1),     G(1),     G(1,E,1), G(0)]
+    ],
+    maxSwaps: 2,
+    hint: 'Find the loop in the default path and break it by swapping two cells'
+  },
+  // Level 3: two stars
+  {
+    grid: [
+      [G(1,S,1), G(1),     G(2),     G(3),     G(2)],
+      [G(0),     G(2),     G(1),     G(0),     G(2)],
+      [G(1),     G(1,R,1), G(1),     G(2,R,1), G(3)],
+      [G(0),     G(0),     G(0),     G(3),     G(0)],
+      [G(1),     G(1),     G(1),     G(1),     G(2,E,1)]
+    ],
+    maxSwaps: 3,
+    hint: 'Two stars to collect — think ahead before swapping'
+  },
+  // Level 4
+  {
+    grid: [
+      [G(2,S,1), G(3),     G(0),     G(1),     G(2)],
+      [G(1),     G(0),     G(1),     G(2),     G(3)],
+      [G(1),     G(1,R,1), G(2),     G(1),     G(0)],
+      [G(0),     G(1),     G(1,R,1), G(3),     G(0)],
+      [G(1),     G(1),     G(1),     G(1,E,1), G(0)]
+    ],
+    maxSwaps: 3,
+    hint: 'Two stars on separate rows — plan a path that visits both'
+  },
+  // Level 5
+  {
+    grid: [
+      [G(1,S,1), G(2),     G(3),     G(0),     G(3)],
+      [G(0),     G(1),     G(0),     G(1),     G(0)],
+      [G(1),     G(2,R,1), G(1),     G(2,R,1), G(1)],
+      [G(0),     G(3),     G(0),     G(1),     G(2)],
+      [G(1),     G(1),     G(2,E,1), G(0),     G(3)]
+    ],
+    maxSwaps: 3,
+    hint: 'Stars are at fixed positions — route the path around them carefully'
+  },
+  // Level 6: tighter puzzle
+  {
+    grid: [
+      [G(2,S,1), G(1),     G(2),     G(1),     G(2)],
+      [G(1),     G(2,R,1), G(3),     G(2),     G(3)],
+      [G(0),     G(3),     G(1),     G(1),     G(0)],
+      [G(1),     G(1),     G(2,R,1), G(3),     G(0)],
+      [G(1),     G(0),     G(1),     G(1,E,1), G(0)]
+    ],
+    maxSwaps: 3,
+    hint: 'Three stars total — the path must snake through all of them'
+  },
+  // Level 7
+  {
+    grid: [
+      [G(1,S,1), G(2),     G(1,R,1), G(2),     G(3)],
+      [G(0),     G(1),     G(0),     G(1),     G(0)],
+      [G(1),     G(2),     G(1),     G(2,R,1), G(1)],
+      [G(2),     G(3),     G(0),     G(3),     G(2)],
+      [G(1),     G(1),     G(1),     G(1),     G(2,E,1)]
+    ],
+    maxSwaps: 4,
+    hint: 'Every swap counts — map out the full path before acting'
+  },
+  // Level 8: hardest
+  {
+    grid: [
+      [G(1,S,1), G(2),     G(3),     G(2,R,1), G(3)],
+      [G(0),     G(1),     G(0),     G(3),     G(0)],
+      [G(1),     G(2,R,1), G(1),     G(0),     G(1)],
+      [G(2),     G(3),     G(2),     G(1,R,1), G(2)],
+      [G(3),     G(1),     G(1),     G(3),     G(2,E,1)]
+    ],
+    maxSwaps: 4,
+    hint: 'Three stars, tight swap budget — there is exactly one solution'
+  }
+];
+
+// ── State ──────────────────────────────────────────────────────
+let lvl = 0;
+let grid = [];          // current mutable grid
+let selected = null;    // {r,c} or null
+let swapsLeft = 0;
+let walking = false;
+let walkerR = 0, walkerC = 0;
+let walkerAnim = null;  // animation frame id
+let visitedPath = [];   // cells visited during walk
+let starsLeft = 0;
+
+function deepCopyGrid(src) {
+  return src.map(row => row.map(cell => Object.assign({}, cell)));
+}
+
+function loadLevel(idx) {
+  lvl = idx;
+  grid = deepCopyGrid(LEVELS[idx].grid);
+  selected = null;
+  walking = false;
+  if (walkerAnim) { cancelAnimationFrame(walkerAnim); walkerAnim = null; }
+  visitedPath = [];
+  swapsLeft = LEVELS[idx].maxSwaps;
+  // Count stars
+  starsLeft = 0;
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++)
+    if (grid[r][c].type === T_STAR) starsLeft++;
+  document.getElementById('lvlNum').textContent   = idx + 1;
+  document.getElementById('swapLeft').textContent = swapsLeft;
+  document.getElementById('hintBox').textContent  = LEVELS[idx].hint;
+}
+
+// ── Walk simulation ────────────────────────────────────────────
+function simulateWalk() {
+  // Returns {path: [{r,c}], result:'win'|'loop'|'oob'|'noexit'|'nostar'}
+  let r, c;
+  for (let rr = 0; rr < 5; rr++) for (let cc = 0; cc < 5; cc++)
+    if (grid[rr][cc].type === T_START) { r = rr; c = cc; }
+
+  const path = [{r, c}];
+  const seen = new Set();
+  seen.add(r + ',' + c);
+  let stars = 0;
+  const totalStars = LEVELS[lvl].grid.flat().filter(g => g.type === T_STAR).length;
+
+  for (let step = 0; step < 100; step++) {
+    const cell = grid[r][c];
+    const nr = r + DR[cell.dir];
+    const nc = c + DC[cell.dir];
+
+    if (nr < 0 || nr >= 5 || nc < 0 || nc >= 5) return {path, result:'oob'};
+
+    r = nr; c = nc;
+    const key = r + ',' + c;
+    if (seen.has(key)) return {path, result:'loop'};
+    seen.add(key);
+    path.push({r, c});
+
+    const next = grid[r][c];
+    if (next.type === T_STAR) stars++;
+    if (next.type === T_EXIT) {
+      return {path, result: stars >= totalStars ? 'win' : 'nostar'};
+    }
+  }
+  return {path, result:'loop'};
+}
+
+// ── Walk animation ─────────────────────────────────────────────
+let animStep = 0;
+let animPath = [];
+let animResult = '';
+const STEP_MS = 320;
+let animLast  = 0;
+
+function startWalk() {
+  if (walking) return;
+  const {path, result} = simulateWalk();
+  animPath   = path;
+  animResult = result;
+  animStep   = 0;
+  animLast   = performance.now();
+  walking    = true;
+  visitedPath = [];
+  walkerAnim = requestAnimationFrame(animLoop);
+}
+
+function animLoop(ts) {
+  if (ts - animLast >= STEP_MS) {
+    animLast = ts;
+    animStep++;
+    if (animStep < animPath.length) {
+      visitedPath.push(animPath[animStep - 1]);
+    }
+    if (animStep >= animPath.length) {
+      // Done
+      walking = false;
+      visitedPath = animPath.slice();
+      draw();
+      if (animResult === 'win') {
+        setTimeout(showClear, 300);
+      } else {
+        const msgs = {
+          loop:   'The walker got stuck in a loop!',
+          oob:    'The walker walked off the edge!',
+          nostar: 'Reached the exit, but missed a star!',
+          noexit: 'The path never reached the exit.'
+        };
+        document.getElementById('failMsg').textContent = msgs[animResult] || 'Try again!';
+        setTimeout(() => document.getElementById('failScr').classList.remove('hidden'), 300);
+      }
+      return;
+    }
+  }
+  draw();
+  walkerAnim = requestAnimationFrame(animLoop);
+}
+
+// ── Drawing ────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, W, W);
+  ctx.fillStyle = '#060612';
+  ctx.fillRect(0, 0, W, W);
+
+  const lv = LEVELS[lvl];
+
+  // Draw trail
+  if (visitedPath.length > 0) {
+    ctx.save();
+    ctx.strokeStyle = '#a78bfa'; ctx.lineWidth = 3; ctx.globalAlpha = 0.25;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    visitedPath.forEach((pt, i) => {
+      const x = pt.c * CELL + CELL / 2, y = pt.r * CELL + CELL / 2;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw cells
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const cell = grid[r][c];
+      const x = c * CELL, y = r * CELL;
+      const isSelected = selected && selected.r === r && selected.c === c;
+
+      // Cell background
+      let bg = '#12122a';
+      if (cell.type === T_START) bg = '#1e2a1e';
+      if (cell.type === T_EXIT)  bg = '#1e1e2a';
+      if (cell.type === T_STAR)  bg = '#2a2218';
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.roundRect(x+2, y+2, CELL-4, CELL-4, 6); ctx.fill();
+
+      // Border
+      let border = '#1e1e40';
+      if (cell.fixed)    border = '#3d3060';
+      if (isSelected)    border = '#fbbf24';
+      ctx.strokeStyle = border; ctx.lineWidth = isSelected ? 2.5 : cell.fixed ? 1.5 : 1;
+      ctx.stroke();
+
+      // Arrow
+      const ax = x + CELL / 2, ay = y + CELL / 2;
+      let arrowColor = '#4b5563';
+      if (cell.type === T_START) arrowColor = '#34d399';
+      if (cell.type === T_STAR)  arrowColor = '#fbbf24';
+      if (cell.type === T_EXIT)  arrowColor = '#a78bfa';
+      if (isSelected)            arrowColor = '#fde68a';
+      drawArrow(ax, ay, cell.dir, arrowColor, CELL * 0.32);
+
+      // Type icon overlay
+      if (cell.type === T_STAR) {
+        ctx.save(); ctx.font = Math.round(CELL * 0.35) + 'px serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 8;
+        ctx.fillText('\u2605', ax, ay - CELL * 0.22); ctx.restore();
+      } else if (cell.type === T_START) {
+        ctx.save(); ctx.font = 'bold ' + Math.round(CELL * 0.22) + 'px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#34d399'; ctx.globalAlpha = 0.8;
+        ctx.fillText('START', ax, ay - CELL * 0.28); ctx.restore();
+      } else if (cell.type === T_EXIT) {
+        ctx.save(); ctx.font = 'bold ' + Math.round(CELL * 0.2) + 'px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#a78bfa'; ctx.globalAlpha = 0.8;
+        ctx.fillText('EXIT', ax, ay - CELL * 0.28); ctx.restore();
+      }
+    }
+  }
+
+  // Walker dot
+  if (walking && animStep > 0 && animStep < animPath.length) {
+    const pt = animPath[animStep];
+    const wx = pt.c * CELL + CELL / 2, wy = pt.r * CELL + CELL / 2;
+    ctx.save();
+    ctx.shadowColor = '#fff'; ctx.shadowBlur = 20;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(wx, wy, CELL * 0.22, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawArrow(cx, cy, dir, color, len) {
+  const angle = [Math.PI * 1.5, 0, Math.PI * 0.5, Math.PI][dir];
+  const hx = Math.cos(angle) * len, hy = Math.sin(angle) * len;
+  const tx = cx - hx, ty = cy - hy;   // tail
+  const hpx = cx + hx * 0.6, hpy = cy + hy * 0.6; // head point
+
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.shadowColor = color; ctx.shadowBlur = 5;
+  // Shaft
+  ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(cx, cy); ctx.stroke();
+  // Arrowhead
+  const perp = [-Math.sin(angle), Math.cos(angle)];
+  const hw = len * 0.35;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(hpx, hpy);
+  ctx.lineTo(cx + perp[0] * hw, cy + perp[1] * hw);
+  ctx.lineTo(cx - perp[0] * hw, cy - perp[1] * hw);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// ── Interaction ────────────────────────────────────────────────
+function handleTap(px, py) {
+  if (walking) return;
+  const col = Math.floor(px / CELL);
+  const row = Math.floor(py / CELL);
+  if (col < 0 || col >= 5 || row < 0 || row >= 5) return;
+  const cell = grid[row][col];
+
+  if (!selected) {
+    if (!cell.fixed) selected = {r: row, c: col};
+  } else {
+    if (selected.r === row && selected.c === col) {
+      selected = null; // deselect
+    } else if (!cell.fixed && swapsLeft > 0) {
+      // Swap directions
+      const tmp = grid[selected.r][selected.c].dir;
+      grid[selected.r][selected.c].dir = grid[row][col].dir;
+      grid[row][col].dir = tmp;
+      swapsLeft--;
+      document.getElementById('swapLeft').textContent = swapsLeft;
+      selected = null;
+    } else {
+      selected = cell.fixed ? null : {r: row, c: col};
+    }
+  }
+  draw();
+}
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  handleTap((e.clientX - r.left) * (W / r.width), (e.clientY - r.top) * (W / r.height));
+});
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  const t = e.touches[0];
+  handleTap((t.clientX - r.left) * (W / r.width), (t.clientY - r.top) * (W / r.height));
+}, {passive: false});
+
+// ── Button events ──────────────────────────────────────────────
+document.getElementById('walkBtn').addEventListener('click', () => {
+  if (walking) return;
+  selected = null;
+  startWalk();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (walkerAnim) cancelAnimationFrame(walkerAnim);
+  loadLevel(lvl); draw();
+});
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('titleScr').classList.add('hidden');
+  loadLevel(0); draw();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  document.getElementById('clearScr').classList.add('hidden');
+  lvl++;
+  if (lvl >= LEVELS.length) {
+    document.getElementById('victScr').classList.remove('hidden'); return;
+  }
+  loadLevel(lvl); draw();
+});
+document.getElementById('retryBtn').addEventListener('click', () => {
+  document.getElementById('failScr').classList.add('hidden');
+  loadLevel(lvl); draw();
+});
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+  document.getElementById('victScr').classList.add('hidden');
+  lvl = 0; loadLevel(0); draw();
+});
+
+function showClear() {
+  const used = LEVELS[lvl].maxSwaps - swapsLeft;
+  document.getElementById('clearMsg').textContent =
+    'Level ' + (lvl + 1) + ' complete!  Swaps used: ' + used + ' / ' + LEVELS[lvl].maxSwaps;
+  document.getElementById('clearScr').classList.remove('hidden');
+}
+
+// ── Boot ───────────────────────────────────────────────────────
+loadLevel(0);
+draw();
+</script>
+</body>
+</html>
