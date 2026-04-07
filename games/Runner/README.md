@@ -1,42 +1,42 @@
 # 🏃 Wall Runner
 
-횡 스크롤 러너 게임. 장애물을 피하고, 벽에 닿으면 폰을 돌려 벽을 바닥으로 만드세요!
+A side-scrolling runner game. Dodge obstacles, and when you hit a wall, tilt your phone to make the wall the floor!
 
-## 🎮 플레이 방법
+## 🎮 How to Play
 
-[▶ index.html 을 브라우저에서 열어 바로 플레이](index.html)
+[▶ Open index.html in your browser to play instantly](index.html)
 
-## 🕹️ 조작법
+## 🕹️ Controls
 
-| 동작 | 키보드 | 모바일 |
-|------|--------|--------|
-| 점프 | `Space` / `↑` | 화면 위쪽 탭 |
-| 웅크리기 | `↓` | 화면 아래쪽 탭 |
-| 벽 회전 | `R` | 폰 기울이기 / 탭 |
-| 시작 / 재시작 | 아무 키 | 탭 |
+| Action | Keyboard | Mobile |
+|--------|----------|--------|
+| Jump | `Space` / `↑` | Tap upper half of screen |
+| Duck | `↓` | Tap lower half of screen |
+| Wall rotation | `R` | Tilt phone / Tap |
+| Start / Restart | Any key | Tap |
 
-## ⚙️ 게임 규칙
+## ⚙️ Game Rules
 
-- 플레이어는 자동으로 달립니다.
-- **높은 장애물(빨간)** → 점프로 넘어가세요.
-- **낮은 장애물(주황)** → 웅크려서 통과하세요.
-- **보라색 벽** 이 나타나면 `R` 키 또는 폰을 기울여 세계를 90° 회전시키세요. 벽이 바닥이 됩니다!
-- 회전할 때마다 배경 테마가 바뀝니다 (4가지 색상 순환).
+- The player runs automatically.
+- **Tall obstacles (red)** → Jump over them.
+- **Low obstacles (orange)** → Duck under them.
+- When a **purple wall** appears, press `R` or tilt your phone to rotate the world 90°. The wall becomes the floor!
+- The background theme changes with every rotation (4 color cycle).
 
-## ✨ 주요 기능
+## ✨ Features
 
-- HTML5 Canvas 기반, 설치 없이 브라우저에서 바로 실행
-- 모바일 터치 & DeviceOrientation API 지원
-- 점수 / 최고점수 저장 (세션 내)
-- 진행할수록 장애물 간격이 좁아지는 난이도 상승
-- 점프·착지 파티클 효과 & 카메라 쉐이크
-- 벽 접근 시 HUD 경고 바 표시
+- HTML5 Canvas based, runs directly in the browser with no installation
+- Mobile touch & DeviceOrientation API support
+- Score / best score saved (within session)
+- Increasing difficulty as obstacle gaps narrow
+- Jump & landing particle effects & camera shake
+- HUD warning bar when approaching a wall
 
-## 🚀 실행 방법
+## 🚀 How to Run
 
 ```bash
-# 로컬 서버 없이 브라우저로 index.html 파일을 바로 열거나,
-# 간단한 로컬 서버를 띄울 수 있습니다:
+# Open index.html directly in your browser without a local server, or
+# spin up a simple local server:
 python3 -m http.server 8080
-# → http://localhost:8080 에서 플레이
+# → Play at http://localhost:8080
 ```

@@ -584,7 +584,7 @@ function drawHUD() {
 
   ctx.font = '14px sans-serif';
   ctx.fillStyle = 'rgba(255,220,50,0.75)';
-  ctx.fillText(`최고: ${highScore}`, 18, 58);
+  ctx.fillText(`Best: ${highScore}`, 18, 58);
 
   // Lives (dots)
   for (let i = 0; i < 3; i++) {
@@ -639,14 +639,14 @@ function drawTitle() {
   // Korean subtitle
   ctx.font = `${Math.min(18, canvas.width / 21)}px sans-serif`;
   ctx.fillStyle = 'rgba(180,230,255,0.85)';
-  ctx.fillText('어둠 속 적을 찾아 처치하라!', cx, cy - 52);
+  ctx.fillText('Hunt enemies lurking in the dark!', cx, cy - 52);
 
   // How to play
   const tips = [
-    '⚡  파동이 퍼져 적을 비추면',
-    '👆  빛나는 적을 빠르게 탭!',
-    '💀  적이 중심에 닿으면 목숨 감소',
-    '🔥  연속 처치로 콤보 점수 획득',
+    '⚡  When the pulse wave lights up an enemy,',
+    '👆  Tap the glowing enemy quickly!',
+    '💀  Lives decrease if enemies reach the center',
+    '🔥  Chain kills earn combo score',
   ];
   ctx.font = `${Math.min(14, canvas.width / 26)}px sans-serif`;
   ctx.fillStyle = 'rgba(160,215,255,0.7)';
@@ -665,12 +665,12 @@ function drawTitle() {
   ctx.stroke();
   ctx.font = `bold ${Math.min(20, canvas.width / 20)}px sans-serif`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('터치하여 시작', cx, btnY + 33);
+  ctx.fillText('Tap to Start', cx, btnY + 33);
 
   if (highScore > 0) {
     ctx.font = '15px sans-serif';
     ctx.fillStyle = 'rgba(255,220,60,0.7)';
-    ctx.fillText(`🏆 최고 점수: ${highScore}`, cx, btnY + 78);
+    ctx.fillText(`🏆 Best Score: ${highScore}`, cx, btnY + 78);
   }
 }
 
@@ -691,11 +691,11 @@ function drawGameOver() {
 
   ctx.font = `${Math.min(28, canvas.width / 13)}px sans-serif`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText(`점수: ${score}`, cx, cy - 20);
+  ctx.fillText(`Score: ${score}`, cx, cy - 20);
 
   ctx.font = `${Math.min(20, canvas.width / 19)}px sans-serif`;
   ctx.fillStyle = '#ffdd55';
-  ctx.fillText(`최고 점수: ${highScore}`, cx, cy + 18);
+  ctx.fillText(`Best Score: ${highScore}`, cx, cy + 18);
 
   // Restart button
   const btnW = Math.min(220, canvas.width * 0.6);
@@ -710,7 +710,7 @@ function drawGameOver() {
   ctx.stroke();
   ctx.font = `bold ${Math.min(20, canvas.width / 20)}px sans-serif`;
   ctx.fillStyle = '#ffffff';
-  ctx.fillText('다시 시작', cx, btnY + 33);
+  ctx.fillText('Restart', cx, btnY + 33);
 }
 
 // ─── Main draw ───────────────────────────────────────────────────────────────
