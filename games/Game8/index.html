@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Frequency Lock</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#060612;color:#0ff;font-family:'Courier New',monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;user-select:none}
+#container{width:100%;max-width:480px;height:100vh;max-height:640px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.screen{display:none;width:100%;height:100%;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0}
+.screen.active{display:flex}
+/* Title */
+#titleScreen{gap:20px;padding:20px}
+#titleScreen h1{font-size:2.2em;color:#0ff;text-shadow:0 0 20px #0ff,0 0 40px #0ff;letter-spacing:4px;text-align:center}
+#titleScreen p{color:#08f;font-size:0.85em;text-align:center;line-height:1.7;max-width:340px}
+.btn{background:transparent;border:2px solid #0ff;color:#0ff;font-family:'Courier New',monospace;font-size:1.1em;padding:12px 32px;cursor:pointer;letter-spacing:2px;text-transform:uppercase;transition:all 0.2s;text-shadow:0 0 8px #0ff;box-shadow:0 0 12px #0ff4}
+.btn:hover,.btn:active{background:#0ff2;box-shadow:0 0 24px #0ff}
+/* Game */
+#gameScreen{padding:10px;gap:8px}
+#hud{display:flex;justify-content:space-between;width:100%;padding:0 10px;font-size:0.9em;color:#0af}
+#hud span{text-shadow:0 0 6px #0af}
+#barsArea{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:6px;padding:10px 6px 0}
+.bar-col{display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;cursor:pointer}
+.bar-wrap{width:52px;height:300px;position:relative;display:flex;flex-direction:column;justify-content:flex-end}
+.bar-inner{width:100%;border-radius:4px 4px 0 0;transition:height 0.25s cubic-bezier(.4,0,.2,1),background 0.25s,box-shadow 0.25s;position:relative}
+.bar-inner.matched{box-shadow:0 0 0 2px #fff,0 0 20px #fff8 !important}
+.lock-icon{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:14px;opacity:0;transition:opacity 0.3s}
+.lock-icon.visible{opacity:1}
+.hint-flash{animation:hintFlash 0.6s ease-in-out 3}
+@keyframes hintFlash{0%,100%{filter:brightness(1)}50%{filter:brightness(3) saturate(2)}}
+#targetRow{display:flex;gap:6px;padding:4px 6px;width:100%}
+.target-col{width:52px;display:flex;justify-content:center}
+.target-dot{width:16px;height:16px;border-radius:50%;border:2px solid #fff8;transition:background 0.3s}
+#btnRow{display:flex;gap:12px;padding:4px 0}
+.sm-btn{background:transparent;border:1.5px solid #0af;color:#0af;font-family:'Courier New',monospace;font-size:0.8em;padding:7px 16px;cursor:pointer;letter-spacing:1px;transition:all 0.2s}
+.sm-btn:hover{background:#0af2;box-shadow:0 0 10px #0af}
+.sm-btn:disabled{opacity:0.3;cursor:not-allowed}
+/* Clear */
+#clearScreen{gap:16px}
+#clearScreen h2{font-size:2.5em;color:#0f8;text-shadow:0 0 20px #0f8,0 0 40px #0f8;letter-spacing:4px}
+#clearScreen p{color:#0af;font-size:1em;letter-spacing:1px}
+/* Victory */
+#victoryScreen{gap:20px}
+#victoryScreen h2{font-size:1.8em;color:#f0f;text-shadow:0 0 20px #f0f,0 0 40px #f0f;letter-spacing:2px;text-align:center}
+#victoryScreen p{color:#0ff;font-size:0.9em;letter-spacing:1px}
+.back-link{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);color:#0af4;font-size:0.75em;text-decoration:none;letter-spacing:1px}
+.back-link:hover{color:#0af}
+/* Stars particle */
+#stars{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#container{z-index:1}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div id="container">
+  <!-- Title -->
+  <div id="titleScreen" class="screen active">
+    <h1>FREQUENCY<br>LOCK</h1>
+    <p>Adjust 7 frequency bars to match the targets.<br>
+    Every change couples to neighbors — raising or lowering a bar shifts adjacent bars too.<br><br>
+    Tap <b>top half</b> to raise · <b>bottom half</b> to lower</p>
+    <button class="btn" onclick="startGame()">START</button>
+    <a href="../../index.html" class="back-link">← BACK</a>
+  </div>
+  <!-- Game -->
+  <div id="gameScreen" class="screen">
+    <div id="hud">
+      <span id="levelLabel">LVL 1</span>
+      <span id="moveLabel">MOVES: 0</span>
+      <span id="parLabel">PAR: 4</span>
+    </div>
+    <div id="barsArea"></div>
+    <div id="targetRow"></div>
+    <div id="btnRow">
+      <button class="sm-btn" id="undoBtn" onclick="doUndo()">↩ UNDO</button>
+      <button class="sm-btn" id="hintBtn" onclick="doHint()">💡 HINT</button>
+    </div>
+    <a href="../../index.html" class="back-link">← BACK</a>
+  </div>
+  <!-- Level Clear -->
+  <div id="clearScreen" class="screen">
+    <h2>LOCKED!</h2>
+    <p id="clearStats"></p>
+    <button class="btn" id="nextBtn" onclick="nextLevel()">NEXT →</button>
+    <a href="../../index.html" class="back-link">← BACK</a>
+  </div>
+  <!-- Victory -->
+  <div id="victoryScreen" class="screen">
+    <h2>ALL FREQUENCIES<br>LOCKED!</h2>
+    <p id="victoryStats"></p>
+    <button class="btn" onclick="showTitle()">PLAY AGAIN</button>
+    <a href="../../index.html" class="back-link">← BACK</a>
+  </div>
+</div>
+
+<script>
+// Stars background
+(function(){
+  const c=document.getElementById('stars'),ctx=c.getContext('2d');
+  function resize(){c.width=window.innerWidth;c.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+  const stars=Array.from({length:80},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.5+0.3,a:Math.random()}));
+  function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    stars.forEach(s=>{
+      s.a+=0.003+Math.random()*0.002;
+      const alpha=0.3+0.3*Math.sin(s.a);
+      ctx.fillStyle=`rgba(100,200,255,${alpha})`;
+      ctx.beginPath();ctx.arc(s.x*c.width,s.y*c.height,s.r,0,Math.PI*2);ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+const BAR_COUNT=7;
+const HEIGHT_COLORS=['#224','#06f','#0ff','#0f8','#ff0','#f0f'];
+const PAR=[0,4,4,4,4,4,7,7,7,7,7]; // index 1-10
+
+let currentLevel=1;
+let targets=[];
+let state=[];
+let moves=0;
+let undoStack=[];
+let hintUses=3;
+let hintMoves=[];
+let hintIndex=0;
+let totalMoves=0;
+
+function clamp16(v){return Math.max(1,Math.min(6,v));}
+function wrap16(v){return((v-1+6)%6)+1;}
+
+function applyMove(arr,i,dir){
+  const next=[...arr];
+  next[i]=wrap16(next[i]+dir);
+  if(i>0)next[i-1]=wrap16(next[i-1]+dir);
+  if(i<BAR_COUNT-1)next[i+1]=wrap16(next[i+1]+dir);
+  return next;
+}
+
+function generateLevel(lvl){
+  const t=Array.from({length:BAR_COUNT},()=>Math.floor(Math.random()*6)+1);
+  const n=(lvl<=5)?4:7;
+  const par=n;
+  let cur=[...t];
+  const seq=[];
+  for(let k=0;k<n;k++){
+    const bi=Math.floor(Math.random()*BAR_COUNT);
+    const dir=Math.random()<0.5?1:-1;
+    cur=applyMove(cur,bi,dir);
+    seq.push({bar:bi,dir:dir});
+  }
+  // Hint: reverse of generation sequence
+  const hints=seq.slice().reverse().map(m=>({bar:m.bar,dir:-m.dir}));
+  return{targets:t,start:cur,par,hints};
+}
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showTitle(){showScreen('titleScreen');}
+
+function startGame(){
+  currentLevel=1;totalMoves=0;
+  loadLevel(currentLevel);
+  showScreen('gameScreen');
+}
+
+function loadLevel(lvl){
+  const data=generateLevel(lvl);
+  targets=[...data.targets];
+  state=[...data.start];
+  moves=0;
+  undoStack=[];
+  hintMoves=[...data.hints];
+  hintIndex=0;
+  if(lvl===1)hintUses=3;
+  document.getElementById('levelLabel').textContent='LVL '+lvl;
+  document.getElementById('parLabel').textContent='PAR: '+data.par;
+  document.getElementById('moveLabel').textContent='MOVES: 0';
+  document.getElementById('undoBtn').disabled=true;
+  document.getElementById('hintBtn').textContent='💡 HINT('+hintUses+')';
+  document.getElementById('hintBtn').disabled=hintUses<=0;
+  buildBarsUI();
+  renderBars();
+}
+
+function buildBarsUI(){
+  const area=document.getElementById('barsArea');
+  const trow=document.getElementById('targetRow');
+  area.innerHTML='';trow.innerHTML='';
+  for(let i=0;i<BAR_COUNT;i++){
+    const col=document.createElement('div');
+    col.className='bar-col';
+    col.dataset.i=i;
+    const wrap=document.createElement('div');
+    wrap.className='bar-wrap';
+    const lock=document.createElement('div');
+    lock.className='lock-icon';lock.id='lock'+i;lock.textContent='🔒';
+    const inner=document.createElement('div');
+    inner.className='bar-inner';inner.id='bar'+i;
+    wrap.appendChild(lock);wrap.appendChild(inner);
+    col.appendChild(wrap);
+    area.appendChild(col);
+    // touch/click
+    col.addEventListener('click',e=>{
+      const rect=wrap.getBoundingClientRect();
+      const y=e.clientY-rect.top;
+      const dir=y<rect.height/2?1:-1;
+      doMove(parseInt(col.dataset.i),dir);
+    });
+    col.addEventListener('touchend',e=>{
+      e.preventDefault();
+      const t=e.changedTouches[0];
+      const rect=wrap.getBoundingClientRect();
+      const y=t.clientY-rect.top;
+      const dir=y<rect.height/2?1:-1;
+      doMove(parseInt(col.dataset.i),dir);
+    });
+    // target dot
+    const tc=document.createElement('div');tc.className='target-col';
+    const dot=document.createElement('div');dot.className='target-dot';dot.id='tdot'+i;
+    tc.appendChild(dot);trow.appendChild(tc);
+  }
+}
+
+function barColor(h){return HEIGHT_COLORS[h-1];}
+
+function renderBars(){
+  const maxH=300;
+  const unitH=maxH/6;
+  for(let i=0;i<BAR_COUNT;i++){
+    const bar=document.getElementById('bar'+i);
+    const h=state[i];
+    const px=Math.round(h*unitH);
+    bar.style.height=px+'px';
+    const col=barColor(h);
+    bar.style.background=col;
+    bar.style.boxShadow=`0 0 12px ${col}, 0 0 24px ${col}8`;
+    const matched=state[i]===targets[i];
+    bar.classList.toggle('matched',matched);
+    document.getElementById('lock'+i).classList.toggle('visible',matched);
+    // target dot
+    const dot=document.getElementById('tdot'+i);
+    dot.style.background=barColor(targets[i]);
+    dot.style.boxShadow=`0 0 8px ${barColor(targets[i])}`;
+  }
+  document.getElementById('moveLabel').textContent='MOVES: '+moves;
+  document.getElementById('undoBtn').disabled=undoStack.length===0;
+  // check win
+  if(state.every((v,i)=>v===targets[i])){
+    setTimeout(()=>levelClear(),400);
+  }
+}
+
+function doMove(i,dir){
+  undoStack.push([...state]);
+  if(undoStack.length>5)undoStack.shift();
+  state=applyMove(state,i,dir);
+  moves++;totalMoves++;
+  renderBars();
+}
+
+function doUndo(){
+  if(undoStack.length===0)return;
+  state=undoStack.pop();
+  if(moves>0)moves--;
+  document.getElementById('undoBtn').disabled=undoStack.length===0;
+  renderBars();
+}
+
+function doHint(){
+  if(hintUses<=0||hintIndex>=hintMoves.length)return;
+  hintUses--;
+  document.getElementById('hintBtn').textContent='💡 HINT('+hintUses+')';
+  document.getElementById('hintBtn').disabled=hintUses<=0;
+  const h=hintMoves[hintIndex++];
+  const bar=document.getElementById('bar'+h.bar);
+  bar.classList.add('hint-flash');
+  // show arrow direction
+  const col=document.querySelectorAll('.bar-col')[h.bar];
+  col.style.outline=h.dir>0?'2px solid #ff0':'2px solid #f80';
+  setTimeout(()=>{bar.classList.remove('hint-flash');col.style.outline='';},2000);
+}
+
+function levelClear(){
+  const par=PAR[currentLevel]||4;
+  document.getElementById('clearStats').textContent=`Moves: ${moves}  /  Par: ${par}`;
+  showScreen('clearScreen');
+  document.getElementById('nextBtn').textContent=currentLevel<10?'NEXT →':'FINISH';
+}
+
+function nextLevel(){
+  if(currentLevel>=10){
+    document.getElementById('victoryStats').textContent=`Total moves: ${totalMoves}`;
+    showScreen('victoryScreen');
+    launchVictoryParticles();
+  } else {
+    currentLevel++;
+    loadLevel(currentLevel);
+    showScreen('gameScreen');
+  }
+}
+
+function launchVictoryParticles(){
+  const c=document.getElementById('stars'),ctx=c.getContext('2d');
+  const pts=Array.from({length:60},()=>({
+    x:Math.random()*c.width,y:Math.random()*c.height,
+    vx:(Math.random()-0.5)*3,vy:(Math.random()-2)*3,
+    col:`hsl(${Math.random()*360},100%,60%)`,r:Math.random()*4+2,life:1
+  }));
+  function frame(){
+    pts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.05;p.life-=0.012;
+      if(p.life>0){ctx.globalAlpha=p.life;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+    });
+    ctx.globalAlpha=1;
+    if(pts.some(p=>p.life>0))requestAnimationFrame(frame);
+  }
+  frame();
+}
+</script>
+</body>
+</html>

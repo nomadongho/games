@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Phase Flip</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { height: 100%; }
+    body {
+      background: #060612;
+      color: #e0d0ff;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100%;
+      touch-action: pan-y;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Game wrapper ─────────────────────────────── */
+    #game {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(500px, 100vw);
+      padding: 10px 8px;
+      gap: 10px;
+    }
+
+    /* ── HUD ─────────────────────────────────────── */
+    #hud {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      width: 100%;
+      padding: 6px 0 10px;
+      border-bottom: 1px solid #1e0a30;
+    }
+    .hud-block { text-align: center; }
+    .hud-lbl {
+      font-size: 10px;
+      color: #5a2a7a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .hud-val {
+      font-size: 22px;
+      font-weight: bold;
+      color: #d8c0f8;
+      margin-top: 2px;
+    }
+
+    /* ── Grid ────────────────────────────────────── */
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: clamp(4px, 1.4vw, 8px);
+      width: min(464px, calc(100vw - 16px));
+    }
+    .cell {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(14px, 4.5vw, 22px);
+      font-weight: bold;
+      cursor: pointer;
+      position: relative;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.08s ease;
+    }
+    .cell:active { transform: scale(0.87); }
+
+    /* Phase colours */
+    .cell[data-phase="0"] {
+      background: #0b0520;
+      color: #2c0e55;
+      box-shadow: inset 0 0 6px rgba(80,0,160,0.2);
+    }
+    .cell[data-phase="1"] {
+      background: #001d2d;
+      color: #00ffff;
+      box-shadow: 0 0 10px #0ff, 0 0 20px rgba(0,255,255,0.3);
+      animation: p1 2.4s ease-in-out infinite;
+    }
+    .cell[data-phase="2"] {
+      background: #1c1900;
+      color: #ffff00;
+      box-shadow: 0 0 10px #ff0, 0 0 20px rgba(255,255,0,0.3);
+      animation: p2 2.4s ease-in-out infinite;
+    }
+    .cell[data-phase="3"] {
+      background: #1d001d;
+      color: #ff00ff;
+      box-shadow: 0 0 10px #f0f, 0 0 20px rgba(255,0,255,0.3);
+      animation: p3 2.4s ease-in-out infinite;
+    }
+    @keyframes p1 {
+      0%,100% { box-shadow: 0 0 10px #0ff, 0 0 20px rgba(0,255,255,0.30); }
+      50%      { box-shadow: 0 0 20px #0ff, 0 0 36px rgba(0,255,255,0.60); }
+    }
+    @keyframes p2 {
+      0%,100% { box-shadow: 0 0 10px #ff0, 0 0 20px rgba(255,255,0,0.30); }
+      50%      { box-shadow: 0 0 20px #ff0, 0 0 36px rgba(255,255,0,0.60); }
+    }
+    @keyframes p3 {
+      0%,100% { box-shadow: 0 0 10px #f0f, 0 0 20px rgba(255,0,255,0.30); }
+      50%      { box-shadow: 0 0 20px #f0f, 0 0 36px rgba(255,0,255,0.60); }
+    }
+
+    /* Hint ring (::after overlay) */
+    .cell.hint-ring::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 14px;
+      border: 3px solid #fff;
+      pointer-events: none;
+      animation: hring 0.46s ease-in-out 3 forwards;
+    }
+    @keyframes hring {
+      0%,100% { opacity: 0; transform: scale(1.0); }
+      50%      { opacity: 1; transform: scale(1.12); box-shadow: 0 0 14px #fff; }
+    }
+
+    /* ── Buttons ─────────────────────────────────── */
+    #btns {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      justify-content: center;
+    }
+    .btn {
+      flex: 1;
+      max-width: 148px;
+      padding: 13px 6px;
+      background: #0d0822;
+      border: 1px solid #3a1a5a;
+      color: #c090e0;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(11px, 2.8vw, 13px);
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:hover:not(:disabled) {
+      border-color: #7722bb;
+      color: #e0c0ff;
+      box-shadow: 0 0 8px rgba(119,34,187,0.4);
+    }
+    .btn:active:not(:disabled) { transform: scale(0.95); background: #18082e; }
+    .btn:disabled { opacity: 0.3; cursor: default; }
+
+    /* ── Legend ──────────────────────────────────── */
+    #legend {
+      font-size: clamp(10px, 2.5vw, 12px);
+      color: #3d1a5a;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Overlays ────────────────────────────────── */
+    .ov {
+      position: fixed; inset: 0;
+      background: rgba(6,6,18,0.96);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 300;
+      padding: 24px 20px;
+      gap: 16px;
+    }
+    .ov.off { display: none; }
+
+    .ov-h1 {
+      font-size: clamp(30px, 9vw, 52px);
+      font-weight: bold;
+      letter-spacing: 4px;
+      text-align: center;
+    }
+    .ov-h2 {
+      font-size: clamp(14px, 4vw, 20px);
+      letter-spacing: 2px;
+      text-align: center;
+    }
+    .ov-body {
+      font-size: clamp(12px, 3.5vw, 15px);
+      color: #b090d0;
+      text-align: center;
+      max-width: 400px;
+      line-height: 1.9;
+    }
+    .ov-stats {
+      font-size: clamp(13px, 3.5vw, 16px);
+      color: #88b8c8;
+      text-align: center;
+      line-height: 2.1;
+    }
+    .ov-btn {
+      padding: 15px 40px;
+      background: transparent;
+      border: 2px solid;
+      font-family: 'Courier New', monospace;
+      font-size: clamp(15px, 4.5vw, 20px);
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      cursor: pointer;
+      border-radius: 8px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .ov-btn:active { transform: scale(0.96); }
+
+    .back-link {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #3a1255;
+      font-size: 12px;
+      text-decoration: none;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: #9944cc; }
+
+    /* Title overlay */
+    #ov-title .ov-h1 {
+      color: #f0f;
+      text-shadow: 0 0 22px #f0f, 0 0 44px rgba(255,0,255,0.45);
+    }
+    #ov-title .ov-h2 { color: #0ff; }
+    #ov-title .ov-btn {
+      color: #f0f; border-color: #f0f;
+      animation: bpm 1.8s ease-in-out infinite;
+    }
+    #ov-title .ov-btn:hover {
+      background: rgba(255,0,255,0.1);
+      box-shadow: 0 0 18px rgba(255,0,255,0.4);
+    }
+
+    /* Level-clear overlay */
+    #ov-clear .ov-h1 {
+      color: #0ff;
+      animation: clearpulse 1s ease-in-out infinite;
+    }
+    #ov-clear .ov-btn {
+      color: #0ff; border-color: #0ff;
+      animation: bpc 1.8s ease-in-out infinite;
+    }
+    #ov-clear .ov-btn:hover { background: rgba(0,255,255,0.1); }
+
+    @keyframes clearpulse {
+      0%,100% { text-shadow: 0 0 18px #0ff, 0 0 36px rgba(0,255,255,0.4); }
+      50%      { text-shadow: 0 0 36px #0ff, 0 0 70px rgba(0,255,255,0.7); }
+    }
+
+    /* Victory overlay */
+    #ov-victory .ov-h1 {
+      color: #ff0;
+      text-shadow: 0 0 22px #ff0, 0 0 44px rgba(255,255,0,0.45);
+    }
+    #ov-victory .ov-h2 { color: #f0f; }
+    #ov-victory .ov-btn {
+      color: #ff0; border-color: #ff0;
+      animation: bpy 1.8s ease-in-out infinite;
+    }
+    #ov-victory .ov-btn:hover { background: rgba(255,255,0,0.1); }
+
+    .stars {
+      font-size: clamp(24px, 6vw, 38px);
+      letter-spacing: 10px;
+      color: #ff0;
+      text-shadow: 0 0 12px #ff0;
+    }
+
+    @keyframes bpm {
+      0%,100% { box-shadow: 0 0 5px rgba(255,0,255,0.3); }
+      50%      { box-shadow: 0 0 18px rgba(255,0,255,0.65); }
+    }
+    @keyframes bpc {
+      0%,100% { box-shadow: 0 0 5px rgba(0,255,255,0.3); }
+      50%      { box-shadow: 0 0 18px rgba(0,255,255,0.65); }
+    }
+    @keyframes bpy {
+      0%,100% { box-shadow: 0 0 5px rgba(255,255,0,0.3); }
+      50%      { box-shadow: 0 0 18px rgba(255,255,0,0.65); }
+    }
+
+    /* Inline phase-colour helpers used in HTML text */
+    .c0 { color: #441166; }
+    .c1 { color: #00ffff; }
+    .c2 { color: #ffff00; }
+    .c3 { color: #ff00ff; }
+    .gold { color: #ff0; }
+  </style>
+</head>
+<body>
+
+<!-- ══ TITLE OVERLAY ══════════════════════════════════════════ -->
+<div id="ov-title" class="ov">
+  <div class="ov-h1">PHASE FLIP</div>
+  <div class="ov-h2">4-State Lights Out</div>
+  <div class="ov-body">
+    Tap a cell to advance it <em>and</em> its 4 neighbours<br>
+    forward by one phase (cycles 0 → 1 → 2 → 3 → 0).<br>
+    Get every cell to <span class="c0">■ Phase 0</span> to clear the level.<br><br>
+    <span class="c0">■ 0</span> off &nbsp;
+    <span class="c1">■ 1</span> cyan &nbsp;
+    <span class="c2">■ 2</span> yellow &nbsp;
+    <span class="c3">■ 3</span> magenta<br><br>
+    <strong>Undo</strong> — up to 10 times &nbsp;|&nbsp;
+    <strong>Hint</strong> — 3 per level
+  </div>
+  <button class="ov-btn" id="btn-start">▶ &nbsp;START</button>
+  <a href="../../index.html" class="back-link">← Back to Games</a>
+</div>
+
+<!-- ══ LEVEL-CLEAR OVERLAY ════════════════════════════════════ -->
+<div id="ov-clear" class="ov off">
+  <div class="ov-h1">LEVEL CLEAR!</div>
+  <div id="clear-stats" class="ov-stats"></div>
+  <button class="ov-btn" id="btn-next">NEXT LEVEL</button>
+  <a href="../../index.html" class="back-link">← Back to Games</a>
+</div>
+
+<!-- ══ VICTORY OVERLAY ════════════════════════════════════════ -->
+<div id="ov-victory" class="ov off">
+  <div class="stars">★ ★ ★</div>
+  <div class="ov-h1">VICTORY!</div>
+  <div class="ov-h2">All 10 levels cleared</div>
+  <div id="victory-stats" class="ov-stats"></div>
+  <button class="ov-btn" id="btn-restart">PLAY AGAIN</button>
+  <a href="../../index.html" class="back-link">← Back to Games</a>
+</div>
+
+<!-- ══ GAME UI ════════════════════════════════════════════════ -->
+<div id="game">
+
+  <!-- HUD row -->
+  <div id="hud">
+    <div class="hud-block">
+      <div class="hud-lbl">Level</div>
+      <div class="hud-val" id="hv-level">1</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-lbl">Moves</div>
+      <div class="hud-val" id="hv-moves">0</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-lbl">Best</div>
+      <div class="hud-val" id="hv-best">—</div>
+    </div>
+    <div class="hud-block">
+      <div class="hud-lbl">Par</div>
+      <div class="hud-val" id="hv-par">—</div>
+    </div>
+  </div>
+
+  <!-- 5×5 grid (cells injected by JS) -->
+  <div id="grid" aria-label="Phase Flip puzzle grid"></div>
+
+  <!-- Action buttons -->
+  <div id="btns">
+    <button class="btn" id="btn-undo">⟲ Undo</button>
+    <button class="btn" id="btn-hint">💡 Hint (3)</button>
+    <button class="btn" id="btn-menu">☰ Menu</button>
+  </div>
+
+  <!-- Phase legend -->
+  <div id="legend">
+    0=<span class="c0">off</span> &nbsp;·&nbsp;
+    1=<span class="c1">cyan</span> &nbsp;·&nbsp;
+    2=<span class="c2">yellow</span> &nbsp;·&nbsp;
+    3=<span class="c3">magenta</span>
+  </div>
+
+</div><!-- #game -->
+
+<script>
+'use strict';
+
+/* ── Constants ─────────────────────────────────────────────── */
+const N       = 5;          // grid dimension
+const CELLS   = N * N;      // 25
+const PHASES  = 4;
+// Scramble-tap count per level index 0-9
+const SCRAMBLE = [3, 4, 5, 5, 6, 7, 7, 8, 10, 12];
+const MAX_UNDOS = 10;
+const MAX_HINTS = 3;
+
+/* ── State ─────────────────────────────────────────────────── */
+let G = {
+  grid:      new Array(CELLS).fill(0),  // current board values 0-3
+  solution:  new Array(CELLS).fill(0),  // remaining canonical taps per cell
+  moves:     0,
+  level:     0,    // 0-indexed (0 = level 1)
+  hints:     MAX_HINTS,
+  par:       0,    // canonical solution length for this level
+  undoStack: [],   // [{grid, solution, moves}, ...]
+  bestMoves: new Array(10).fill(null),
+  levelPars: new Array(10).fill(0),    // par recorded when each level starts
+  active:    false,
+};
+
+/* ── Grid helpers ──────────────────────────────────────────── */
+/** Indices affected when tapping pos (itself + orthogonal neighbours) */
+function neighbors(pos) {
+  const r = Math.floor(pos / N), c = pos % N;
+  const out = [pos];
+  if (r > 0)   out.push(pos - N);
+  if (r < N-1) out.push(pos + N);
+  if (c > 0)   out.push(pos - 1);
+  if (c < N-1) out.push(pos + 1);
+  return out;
+}
+
+/** Return new grid after tapping pos once */
+function applyTap(grid, pos) {
+  const g = grid.slice();
+  for (const i of neighbors(pos)) g[i] = (g[i] + 1) % PHASES;
+  return g;
+}
+
+/**
+ * Generate a level by starting from all-zeros and applying `n` random taps.
+ * Records tap counts to derive the canonical reverse solution.
+ * Guarantees a non-trivial (non-zero) starting board.
+ */
+function generateLevel(n) {
+  let g = new Array(CELLS).fill(0);
+  const tc = new Array(CELLS).fill(0); // tap count per cell
+  for (let i = 0; i < n; i++) {
+    const pos = Math.floor(Math.random() * CELLS);
+    g = applyTap(g, pos);
+    tc[pos]++;
+  }
+  // Guard against degenerate all-zero result (extremely rare)
+  if (g.every(v => v === 0)) return generateLevel(n);
+
+  // Canonical solution: each cell that was tapped k times needs (4-k%4)%4 more
+  const sol = tc.map(k => (PHASES - (k % PHASES)) % PHASES);
+  const par = sol.reduce((a, b) => a + b, 0);
+  return { grid: g, solution: sol, par };
+}
+
+/** True when all cells are at phase 0 */
+const isSolved = grid => grid.every(v => v === 0);
+
+/* ── DOM references ────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const gridEl  = $('grid');
+const hvLevel = $('hv-level');
+const hvMoves = $('hv-moves');
+const hvBest  = $('hv-best');
+const hvPar   = $('hv-par');
+const btnHint = $('btn-hint');
+const btnUndo = $('btn-undo');
+
+/* ── DOM build / render ────────────────────────────────────── */
+function buildGridDOM() {
+  gridEl.innerHTML = '';
+  for (let i = 0; i < CELLS; i++) {
+    const div = document.createElement('div');
+    div.className   = 'cell';
+    div.dataset.idx   = i;
+    div.dataset.phase = '0';
+    div.textContent   = '0';
+    div.addEventListener('click', () => onTap(i));
+    div.addEventListener('touchstart', e => { e.preventDefault(); onTap(i); },
+      { passive: false });
+    gridEl.appendChild(div);
+  }
+}
+
+function renderGrid() {
+  const cells = gridEl.children;
+  for (let i = 0; i < CELLS; i++) {
+    const ph = G.grid[i];
+    cells[i].dataset.phase = ph;
+    cells[i].textContent   = ph;
+  }
+}
+
+function updateHUD() {
+  hvLevel.textContent = G.level + 1;
+  hvMoves.textContent = G.moves;
+  hvBest.textContent  = G.bestMoves[G.level] ?? '—';
+  hvPar.textContent   = G.par;
+  btnHint.textContent = `💡 Hint (${G.hints})`;
+  btnHint.disabled    = G.hints <= 0;
+  btnUndo.disabled    = G.undoStack.length === 0;
+}
+
+/* ── Core gameplay ─────────────────────────────────────────── */
+function onTap(pos) {
+  if (!G.active) return;
+
+  // Push undo snapshot (keep stack bounded)
+  if (G.undoStack.length >= MAX_UNDOS) G.undoStack.shift();
+  G.undoStack.push({
+    grid:     G.grid.slice(),
+    solution: G.solution.slice(),
+    moves:    G.moves,
+  });
+
+  // Apply the tap
+  G.grid       = applyTap(G.grid, pos);
+  // Canonical solution: one less tap needed at this cell (wraps via mod 4)
+  G.solution[pos] = (G.solution[pos] - 1 + PHASES) % PHASES;
+  G.moves++;
+
+  renderGrid();
+  updateHUD();
+
+  if (isSolved(G.grid)) {
+    G.active = false;
+    setTimeout(showLevelClear, 340);
+  }
+}
+
+function onUndo() {
+  if (!G.active || G.undoStack.length === 0) return;
+  const snap   = G.undoStack.pop();
+  G.grid       = snap.grid;
+  G.solution   = snap.solution;
+  G.moves      = snap.moves;
+  renderGrid();
+  updateHUD();
+}
+
+function onHint() {
+  if (!G.active || G.hints <= 0) return;
+  G.hints--;
+
+  // Next canonical tap: first cell that still needs a tap
+  const pos = G.solution.findIndex(v => v > 0);
+  if (pos === -1) return; // already effectively solved
+
+  // Flash a white ring on that cell
+  const cell = gridEl.children[pos];
+  cell.classList.remove('hint-ring');
+  void cell.offsetWidth; // force reflow to restart animation
+  cell.classList.add('hint-ring');
+  setTimeout(() => cell.classList.remove('hint-ring'), 1500);
+
+  updateHUD();
+}
+
+/* ── Level / screen management ─────────────────────────────── */
+function startLevel(idx) {
+  const { grid, solution, par } = generateLevel(SCRAMBLE[idx]);
+  G.level        = idx;
+  G.grid         = grid;
+  G.solution     = solution;
+  G.par          = par;
+  G.levelPars[idx] = par;
+  G.moves     = 0;
+  G.hints     = MAX_HINTS;
+  G.undoStack = [];
+  G.active    = true;
+  renderGrid();
+  updateHUD();
+}
+
+function showLevelClear() {
+  // Record best
+  const prev = G.bestMoves[G.level];
+  if (prev === null || G.moves < prev) G.bestMoves[G.level] = G.moves;
+
+  const isLast = G.level >= 9;
+  const underPar = G.moves <= G.par;
+  $('clear-stats').innerHTML =
+    `Level <strong>${G.level + 1}</strong> complete!<br>` +
+    `Moves: <strong>${G.moves}</strong> &nbsp;|&nbsp; ` +
+    `Par: <strong>${G.par}</strong><br>` +
+    `Best: <strong>${G.bestMoves[G.level]}</strong>` +
+    (underPar ? ' &nbsp;<span class="gold">★ Under Par!</span>' : '');
+
+  $('btn-next').textContent = isLast ? 'FINISH' : 'NEXT LEVEL';
+  $('ov-clear').classList.remove('off');
+}
+
+function showVictory() {
+  const totalBest  = G.bestMoves.reduce((s, v) => s + (v ?? 0), 0);
+  const underCount = G.bestMoves.filter((v, i) =>
+    v !== null && v <= G.levelPars[i]).length;
+  $('victory-stats').innerHTML =
+    `Total moves (best): <strong>${totalBest}</strong><br>` +
+    `Levels under par: <strong>${underCount} / 10</strong>`;
+  $('ov-victory').classList.remove('off');
+}
+
+/* ── Button listeners ──────────────────────────────────────── */
+$('btn-start').addEventListener('click', () => {
+  $('ov-title').classList.add('off');
+  buildGridDOM();
+  startLevel(0);
+});
+
+$('btn-next').addEventListener('click', () => {
+  $('ov-clear').classList.add('off');
+  const next = G.level + 1;
+  if (next >= 10) {
+    showVictory();
+  } else {
+    startLevel(next);
+  }
+});
+
+$('btn-restart').addEventListener('click', () => {
+  $('ov-victory').classList.add('off');
+  G.bestMoves = new Array(10).fill(null);
+  G.levelPars = new Array(10).fill(0);
+  startLevel(0);
+});
+
+$('btn-undo').addEventListener('click', onUndo);
+$('btn-hint').addEventListener('click', onHint);
+
+$('btn-menu').addEventListener('click', () => {
+  G.active = false;
+  $('ov-title').classList.remove('off');
+});
+
+// Prevent ghost-click / scroll on overlay buttons on mobile
+['btn-start','btn-next','btn-restart','btn-undo','btn-hint','btn-menu']
+  .forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('touchstart', e => e.preventDefault(),
+      { passive: false });
+  });
+</script>
+</body>
+</html>
