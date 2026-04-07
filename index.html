@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎮 Games Collection</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0d0d1a;
+      color: #e0e0ff;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    header h1 {
+      font-size: 2.8rem;
+      letter-spacing: 2px;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      margin-top: 12px;
+      font-size: 1.05rem;
+      color: #9ca3af;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 24px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      border-radius: 16px;
+      padding: 28px 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #7c3aed;
+      box-shadow: 0 8px 30px rgba(124, 58, 237, 0.3);
+    }
+
+    .card .icon {
+      font-size: 2.4rem;
+    }
+
+    .card .game-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #c4b5fd;
+    }
+
+    .card .game-desc {
+      font-size: 0.9rem;
+      color: #9ca3af;
+      line-height: 1.5;
+    }
+
+    .card .badge {
+      margin-top: auto;
+      display: inline-block;
+      background: #2d2d4e;
+      color: #a78bfa;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 99px;
+      width: fit-content;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      color: #4b5563;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎮 Games Collection</h1>
+    <p>nomadongho의 게임 모음 — 플레이할 게임을 선택하세요!</p>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="games/Game/index.html">
+      <div class="icon">🔊</div>
+      <div class="game-title">Echo Hunt</div>
+      <div class="game-desc">소리를 이용해 표적을 추적하는 감각적인 사냥 게임</div>
+      <span class="badge">Game</span>
+    </a>
+
+    <a class="card" href="games/Game2/index.html">
+      <div class="icon">⚛️</div>
+      <div class="game-title">Quantum Cascade</div>
+      <div class="game-desc">양자 연쇄 반응을 일으켜 목표를 달성하는 퍼즐 게임</div>
+      <span class="badge">Game2</span>
+    </a>
+
+    <a class="card" href="games/Game3/index.html">
+      <div class="icon">👾</div>
+      <div class="game-title">ALIEN ASSAULT 2185</div>
+      <div class="game-desc">2185년, 지구를 침략하는 외계인과 싸우는 슈팅 게임</div>
+      <span class="badge">Game3</span>
+    </a>
+
+    <a class="card" href="games/Game4/index.html">
+      <div class="icon">🪐</div>
+      <div class="game-title">행성 귀환</div>
+      <div class="game-desc">우주를 가로질러 행성으로 귀환하는 여정</div>
+      <span class="badge">Game4</span>
+    </a>
+
+    <a class="card" href="games/Game5/index.html">
+      <div class="icon">✨</div>
+      <div class="game-title">별의 물결 – Starwave</div>
+      <div class="game-desc">별빛 물결에 맞춰 리듬을 타는 우주 리듬 게임</div>
+      <span class="badge">Game5</span>
+    </a>
+
+    <a class="card" href="games/Game6/index.html">
+      <div class="icon">💓</div>
+      <div class="game-title">PULSE — Echo Chain</div>
+      <div class="game-desc">펄스를 연결해 에코 체인을 완성하는 반응 게임</div>
+      <span class="badge">Game6</span>
+    </a>
+
+    <a class="card" href="games/Runner/index.html">
+      <div class="icon">🏃</div>
+      <div class="game-title">Wall Runner</div>
+      <div class="game-desc">벽을 달리며 장애물을 피하는 스피디한 러너 게임</div>
+      <span class="badge">Runner</span>
+    </a>
+  </div>
+
+  <footer>
+    <p>© 2025 nomadongho · Games Collection</p>
+  </footer>
+</body>
+</html>
