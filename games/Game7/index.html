@@ -411,6 +411,7 @@ let G = {
   par:       0,    // canonical solution length for this level
   undoStack: [],   // [{grid, solution, moves}, ...]
   bestMoves: new Array(10).fill(null),
+  levelPars: new Array(10).fill(0),    // par recorded when each level starts
   active:    false,
 };
 
@@ -561,10 +562,11 @@ function onHint() {
 /* ── Level / screen management ─────────────────────────────── */
 function startLevel(idx) {
   const { grid, solution, par } = generateLevel(SCRAMBLE[idx]);
-  G.level     = idx;
-  G.grid      = grid;
-  G.solution  = solution;
-  G.par       = par;
+  G.level        = idx;
+  G.grid         = grid;
+  G.solution     = solution;
+  G.par          = par;
+  G.levelPars[idx] = par;
   G.moves     = 0;
   G.hints     = MAX_HINTS;
   G.undoStack = [];
@@ -594,7 +596,7 @@ function showLevelClear() {
 function showVictory() {
   const totalBest  = G.bestMoves.reduce((s, v) => s + (v ?? 0), 0);
   const underCount = G.bestMoves.filter((v, i) =>
-    v !== null && v <= SCRAMBLE[i]).length;
+    v !== null && v <= G.levelPars[i]).length;
   $('victory-stats').innerHTML =
     `Total moves (best): <strong>${totalBest}</strong><br>` +
     `Levels under par: <strong>${underCount} / 10</strong>`;
@@ -621,6 +623,7 @@ $('btn-next').addEventListener('click', () => {
 $('btn-restart').addEventListener('click', () => {
   $('ov-victory').classList.add('off');
   G.bestMoves = new Array(10).fill(null);
+  G.levelPars = new Array(10).fill(0);
   startLevel(0);
 });
 
