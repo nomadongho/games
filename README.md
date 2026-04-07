@@ -12,6 +12,9 @@ A collection of games by nomadongho. Each game is located under the `games/` fol
 | [games/Game4](games/Game4/) | Planet Return | Guide planets back to their home zones |
 | [games/Game5](games/Game5/) | Starwave | A space rhythm game riding waves of starlight |
 | [games/Game6](games/Game6/) | PULSE — Echo Chain | A reaction game chaining pulse echoes |
+| [games/Game7](games/Game7/) | Phase Flip | A 5×5 grid puzzle with 4-phase cells |
+| [games/Game8](games/Game8/) | Frequency Lock | Adjust 7 coupled equalizer bars to match targets |
+| [games/Game9](games/Game9/) | Gravity Maze | Flip gravity to slide a ball, collect gems, reach the exit |
 | [games/Runner](games/Runner/) | Wall Runner | A fast-paced runner game dodging obstacles |
 
 ## How to Play
