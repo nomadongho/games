@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
@@ -105,35 +105,35 @@
   <div class="overlay" id="titleScreen">
     <h1>PULSE</h1>
     <p class="sub">
-      에코 체인 아레나<br><br>
-      🔴 빨간 링 박동 때 빨간 적을 처치<br>
-      🔵 파란 링 박동 때 파란 적을 처치<br>
-      🟢 초록 링 박동 때 초록 적을 처치<br><br>
-      타이밍이 맞으면 <span style="color:#ff0">CRITICAL</span> 히트!<br>
-      에코 체인으로 연속 처치 보너스!
+      Echo Chain Arena<br><br>
+      🔴 Defeat red enemies when the red ring pulses<br>
+      🔵 Defeat blue enemies when the blue ring pulses<br>
+      🟢 Defeat green enemies when the green ring pulses<br><br>
+      Perfect timing scores a <span style="color:#ff0">CRITICAL</span> hit!<br>
+      Chain kills for echo chain bonus!
     </p>
-    <button class="btn" id="startBtn">시작하기</button>
+    <button class="btn" id="startBtn">Start</button>
   </div>
 
   <!-- Stage clear overlay -->
   <div class="overlay hidden" id="clearScreen">
     <h1 style="color:#0f0;text-shadow:0 0 24px #0f0,0 0 60px #0f04;">CLEAR!</h1>
     <p class="sub" id="clearMsg"></p>
-    <button class="btn" style="background:#0f0;box-shadow:0 0 16px #0f08" id="nextBtn">다음 스테이지</button>
+    <button class="btn" style="background:#0f0;box-shadow:0 0 16px #0f08" id="nextBtn">Next Stage</button>
   </div>
 
   <!-- Game over overlay -->
   <div class="overlay hidden" id="gameOverScreen">
     <h1 style="color:#f55;text-shadow:0 0 24px #f55,0 0 60px #f554;">GAME OVER</h1>
     <p class="sub" id="goMsg"></p>
-    <button class="btn" style="background:#f55;box-shadow:0 0 16px #f558" id="retryBtn">다시하기</button>
+    <button class="btn" style="background:#f55;box-shadow:0 0 16px #f558" id="retryBtn">Retry</button>
   </div>
 
   <!-- Final clear overlay -->
   <div class="overlay hidden" id="finalScreen">
     <h1 style="font-size:clamp(28px,7vw,44px);color:#ff0;text-shadow:0 0 24px #ff0">ALL CLEAR!</h1>
     <p class="sub" id="finalMsg"></p>
-    <button class="btn" style="background:#ff0;box-shadow:0 0 16px #ff08" id="playAgainBtn">처음부터</button>
+    <button class="btn" style="background:#ff0;box-shadow:0 0 16px #ff08" id="playAgainBtn">Play Again</button>
   </div>
 </div>
 
@@ -716,11 +716,11 @@ function stageClear() {
   if (stageN >= STAGES.length) {
     // All stages done
     document.getElementById('finalMsg').innerHTML =
-      `최종 점수: <span style="color:#ff0">${score}</span><br>전 스테이지 클리어!`;
+      `Final Score: <span style="color:#ff0">${score}</span><br>All stages cleared!`;
     document.getElementById('finalScreen').classList.remove('hidden');
   } else {
     document.getElementById('clearMsg').innerHTML =
-      `+${bonus} 보너스!<br>현재 점수: <span style="color:#0ff">${score}</span>`;
+      `+${bonus} Bonus!<br>Current Score: <span style="color:#0ff">${score}</span>`;
     document.getElementById('clearScreen').classList.remove('hidden');
   }
 }
@@ -736,7 +736,7 @@ function gameOver() {
   if (gameState !== 'PLAYING') return;
   gameState = 'GAME_OVER';
   document.getElementById('goMsg').innerHTML =
-    `스테이지 ${stageN}에서 탈락<br>최종 점수: <span style="color:#f55">${score}</span>`;
+    `Eliminated at Stage ${stageN}<br>Final Score: <span style="color:#f55">${score}</span>`;
   document.getElementById('gameOverScreen').classList.remove('hidden');
 }
 

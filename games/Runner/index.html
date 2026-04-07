@@ -58,7 +58,7 @@
 <canvas id="game"></canvas>
 <div id="ui"></div>
 <div id="hint">
-  클릭 / 탭 / Space: 장애물 자동 회피 &nbsp;|&nbsp; 벽에 닿으면 자동 방향 전환
+  Click / Tap / Space: auto-dodge obstacles &nbsp;|&nbsp; Touches wall = auto direction switch
 </div>
 <div id="debug-panel"></div>
 
@@ -820,14 +820,14 @@ function drawGameOver() {
 
   ctx.fillStyle = '#fff';
   ctx.font = '22px monospace';
-  ctx.fillText('점수: ' + Math.floor(score / 10), canvas.width / 2, canvas.height / 2 + 10);
-  ctx.fillText('최고: ' + Math.floor(hiScore / 10), canvas.width / 2, canvas.height / 2 + 40);
+  ctx.fillText('Score: ' + Math.floor(score / 10), canvas.width / 2, canvas.height / 2 + 10);
+  ctx.fillText('Best: ' + Math.floor(hiScore / 10), canvas.width / 2, canvas.height / 2 + 40);
 
   const pulse = Math.sin(Date.now() * 0.006) * 0.4 + 0.6;
   ctx.globalAlpha = pulse;
   ctx.fillStyle = '#ffff00';
   ctx.font = 'bold 20px monospace';
-  ctx.fillText('탭 또는 아무 키나 눌러 재시작', canvas.width / 2, canvas.height / 2 + 88);
+  ctx.fillText('Tap or press any key to restart', canvas.width / 2, canvas.height / 2 + 88);
   ctx.globalAlpha = 1;
 }
 
@@ -863,18 +863,18 @@ function drawTitleScreen() {
   // Instructions
   ctx.fillStyle = 'rgba(255,255,255,0.8)';
   ctx.font = '16px monospace';
-  ctx.fillText('클릭 / 탭 한 번으로 장애물 자동 회피!', canvas.width / 2, 265);
-  ctx.fillText('↑ 빨간 장애물 → 점프  |  주황 천장 → 웅크리기', canvas.width / 2, 290);
+  ctx.fillText('One click / tap to auto-dodge obstacles!', canvas.width / 2, 265);
+  ctx.fillText('↑ Red obstacle → Jump  |  Orange ceiling → Duck', canvas.width / 2, 290);
 
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
   ctx.font = '13px monospace';
-  ctx.fillText('장애물을 피하세요! 벽에 닿으면 자동으로 방향이 전환됩니다!', canvas.width / 2, 330);
+  ctx.fillText('Dodge obstacles! Touching a wall auto-switches direction!', canvas.width / 2, 330);
 
   const pulse = Math.sin(Date.now() * 0.005) * 0.4 + 0.6;
   ctx.globalAlpha = pulse;
   ctx.fillStyle = '#ffff00';
   ctx.font = 'bold 22px monospace';
-  ctx.fillText('탭 또는 아무 키나 눌러 시작', canvas.width / 2, 375);
+  ctx.fillText('Tap or press any key to start', canvas.width / 2, 375);
   ctx.globalAlpha = 1;
 }
 

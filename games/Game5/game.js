@@ -1,5 +1,5 @@
 /**
- * 별의 물결 – Starwave
+ * Starwave
  *
  * Novel mechanic: Plant "star seeds" on a cosmic grid. Each seed sends waves
  * of starlight spreading outward one cell per step. When waves from two
@@ -37,48 +37,48 @@ const PALETTE = [
 //  targets   – [row, col] cells that must be lit
 //  seeds     – how many star seeds the player may place
 //  maxSteps  – wave pulses allowed; limits how far growth can travel
-//  hint      – guidance text (Korean)
+//  hint      – guidance text
 //
 //  Design rule: with the OPTIMAL seed placement, all targets are reachable
 //  in exactly maxSteps pulses. With naive/wrong placement they are not.
 //
 const STAGES = [
   {
-    name: "첫 번째 별",
+    name: "First Star",
     targets: [[2, 2], [2, 3], [3, 2]],
     seeds: 1,
     maxSteps: 2,
-    hint: "💡 씨앗 1개를 꽃 근처에 심으면 빛이 퍼져 별자리를 밝힐 거예요!",
+    hint: "💡 Plant 1 seed near the flowers and its light will spread to illuminate the constellation!",
   },
   {
-    name: "두 개의 별빛",
+    name: "Two Starlights",
     targets: [[0, 0], [0, 1], [1, 0], [1, 1], [4, 4], [4, 5], [5, 4], [5, 5]],
     seeds: 2,
     maxSteps: 2,
-    hint: "💡 두 그룹에 씨앗을 각각 하나씩 심어보세요. 빛이 겹치면 어두워져요!",
+    hint: "💡 Plant one seed in each of the two groups. Light goes dark where two waves meet!",
   },
   {
-    name: "십자 별자리",
+    name: "Cross Constellation",
     targets: [
       [0, 3], [1, 3], [2, 3], [3, 0], [3, 1], [3, 2],
       [3, 3], [3, 4], [3, 5], [4, 3], [5, 3],
     ],
     seeds: 1,
     maxSteps: 3,
-    hint: "💡 씨앗 하나로 십자 전체를 밝히려면… 딱 한 군데만 있으면 돼요!",
+    hint: "💡 To light up the entire cross with one seed… there's only one perfect spot!",
   },
   {
-    name: "모서리의 비밀",
+    name: "Corner Secrets",
     targets: [
       [0, 0], [1, 1], [4, 4], [5, 5],
       [0, 5], [1, 4], [4, 1], [5, 0],
     ],
     seeds: 2,
     maxSteps: 3,
-    hint: "💡 씨앗 2개로 대각선 그룹을 각각 밝혀보세요!",
+    hint: "💡 Use 2 seeds to light up each diagonal group separately!",
   },
   {
-    name: "물결 패턴",
+    name: "Wave Pattern",
     targets: [
       [0, 1], [0, 3], [0, 5],
       [2, 0], [2, 2], [2, 4],
@@ -86,10 +86,10 @@ const STAGES = [
     ],
     seeds: 3,
     maxSteps: 2,
-    hint: "💡 씨앗 3개로 물결 모양을 모두 밝혀보세요. 빛이 서로 겹치지 않게!",
+    hint: "💡 Use 3 seeds to light up all the wave cells. Make sure the lights don't overlap!",
   },
   {
-    name: "다이아몬드",
+    name: "Diamond",
     targets: [
       [0, 3],
       [1, 2], [1, 4],
@@ -100,10 +100,10 @@ const STAGES = [
     ],
     seeds: 3,
     maxSteps: 3,
-    hint: "💡 다이아몬드 테두리를 씨앗 3개로 밝혀라! 빛의 경계를 잘 나눠야 해요.",
+    hint: "💡 Illuminate the diamond border with 3 seeds! Divide the light boundaries carefully.",
   },
   {
-    name: "우주의 중심",
+    name: "Heart of the Universe",
     targets: [
       [0, 2], [0, 3],
       [1, 1], [1, 4],
@@ -115,7 +115,7 @@ const STAGES = [
     ],
     seeds: 4,
     maxSteps: 3,
-    hint: "💡 최후의 도전! 내부와 테두리를 씨앗 4개로 빈틈없이 채워보세요.",
+    hint: "💡 Final challenge! Fill the inner ring and border with 4 seeds — no gaps!",
   },
 ];
 
@@ -605,19 +605,19 @@ function showOverlay(won) {
 
   if (won) {
     overlay.className = "visible win";
-    title.textContent = "🌟 성공!";
+    title.textContent = "🌟 Success!";
     if (stageIdx < STAGES.length - 1) {
-      sub.textContent = `모든 별자리를 밝혔습니다!\n다음 스테이지로 이동합니다.`;
-      btn.textContent = "다음 스테이지 ›";
+      sub.textContent = `All constellations illuminated!\nMoving to the next stage.`;
+      btn.textContent = "Next Stage ›";
     } else {
-      sub.textContent = "전 우주를 빛으로 채웠습니다!\n정말 대단해요! 🎉";
-      btn.textContent = "처음부터 다시";
+      sub.textContent = "You've filled the entire universe with light!\nAmazing! 🎉";
+      btn.textContent = "Play Again";
     }
   } else {
     overlay.className = "visible lose";
-    title.textContent = "💀 실패";
-    sub.textContent = "모든 별자리를 밝히지 못했어요.\n씨앗 위치를 바꿔 다시 도전해보세요!";
-    btn.textContent = "다시 도전 ↺";
+    title.textContent = "💀 Failed";
+    sub.textContent = "Not all constellations were lit.\nMove your seeds and try again!";
+    btn.textContent = "Try Again ↺";
   }
 }
 

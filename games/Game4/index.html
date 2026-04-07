@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>행성 귀환</title>
+  <title>Planet Return</title>
   <style>
     *, *::before, *::after {
       margin: 0; padding: 0; box-sizing: border-box;
@@ -72,19 +72,19 @@
 <canvas id="c"></canvas>
 
 <div id="hud">
-  <div class="pill" id="hStage">스테이지 1</div>
+  <div class="pill" id="hStage">Stage 1</div>
   <div class="pill" id="hTimer">⏱ 40</div>
   <div class="pill" id="hLives">❤️❤️❤️</div>
 </div>
 
 <div id="overlay">
-  <div class="ov-title" id="ovTitle">🪐 행성 귀환</div>
+  <div class="ov-title" id="ovTitle">🪐 Planet Return</div>
   <div class="ov-desc" id="ovDesc">
-    행성을 <strong>탭</strong>하면 빨라져요<br>
-    빛나는 홈 존에 도달하면 행성이 멈춰요<br>
-    모든 행성을 홈으로 보내세요!
+    <strong>Tap</strong> a planet to speed it up<br>
+    When it reaches its glowing home zone, it stops<br>
+    Send all planets home!
   </div>
-  <button class="ov-btn" id="ovBtn">시작하기 🚀</button>
+  <button class="ov-btn" id="ovBtn">Start 🚀</button>
 </div>
 
 <script>
@@ -95,12 +95,12 @@
      CONFIG
   ═══════════════════════════════════════════════════ */
   const STAGES = [
-    { n: 2, time: 42, arc: 54, desc: '두 행성을 집으로!' },
-    { n: 3, time: 46, arc: 48, desc: '세 행성을 집으로!' },
-    { n: 4, time: 52, arc: 42, desc: '네 행성을 집으로!' },
-    { n: 5, time: 58, arc: 38, desc: '다섯 행성을 집으로!' },
-    { n: 6, time: 64, arc: 34, desc: '여섯 행성을 집으로!' },
-    { n: 6, time: 52, arc: 27, desc: '⚡ 마지막 도전!' },
+    { n: 2, time: 42, arc: 54, desc: 'Send 2 planets home!' },
+    { n: 3, time: 46, arc: 48, desc: 'Send 3 planets home!' },
+    { n: 4, time: 52, arc: 42, desc: 'Send 4 planets home!' },
+    { n: 5, time: 58, arc: 38, desc: 'Send 5 planets home!' },
+    { n: 6, time: 64, arc: 34, desc: 'Send 6 planets home!' },
+    { n: 6, time: 52, arc: 27, desc: '⚡ Final Challenge!' },
   ];
 
   // Frame-time cap: prevents huge dt spikes when the tab loses focus
@@ -459,7 +459,7 @@
     ctx.shadowBlur       = 28;
     ctx.fillStyle        = 'white';
     ctx.font             = `bold ${Math.round(W * 0.09)}px -apple-system, Arial`;
-    ctx.fillText(`스테이지 ${stageIdx + 1}`, CX, CY - 28);
+    ctx.fillText(`Stage ${stageIdx + 1}`, CX, CY - 28);
     ctx.shadowBlur       = 12;
     ctx.font             = `${Math.round(W * 0.042)}px -apple-system, Arial`;
     ctx.fillStyle        = 'rgba(255,255,255,0.7)';
@@ -513,7 +513,7 @@
   }
 
   function updateHUD() {
-    document.getElementById('hStage').textContent = `스테이지 ${stageIdx + 1}`;
+    document.getElementById('hStage').textContent = `Stage ${stageIdx + 1}`;
     document.getElementById('hTimer').textContent = `⏱ ${Math.ceil(timer)}`;
     document.getElementById('hLives').textContent =
       '❤️'.repeat(Math.max(0, lives));
@@ -526,9 +526,9 @@
     if (lives <= 0) {
       state = 'over';
       showOverlay(
-        '💫 게임 오버',
-        `스테이지 ${stageIdx + 1}에서 멈췄어요!<br>다시 도전해봐요! 💪`,
-        '다시 시작'
+        '💫 Game Over',
+        `Stopped at Stage ${stageIdx + 1}!<br>Try again! 💪`,
+        'Restart'
       );
     } else {
       beginStage();
@@ -545,9 +545,9 @@
     if (stageIdx >= STAGES.length) {
       state = 'won';
       showOverlay(
-        '🏆 전체 클리어!',
-        '모든 행성이 집으로 돌아왔어요!<br>완벽해요! ✨🪐',
-        '다시 하기'
+        '🏆 All Clear!',
+        'All planets made it home!<br>Perfect! ✨🪐',
+        'Play Again'
       );
     } else {
       beginStage();
