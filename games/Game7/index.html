@@ -639,8 +639,9 @@ $('btn-menu').addEventListener('click', () => {
 ['btn-start','btn-next','btn-restart','btn-undo','btn-hint','btn-menu']
   .forEach(id => {
     const el = $(id);
-    if (el) el.addEventListener('touchstart', e => e.preventDefault(),
-      { passive: false });
+    if (!el) return;
+    el.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+    el.addEventListener('touchend', e => { e.preventDefault(); el.click(); }, { passive: false });
   });
 </script>
 </body>
