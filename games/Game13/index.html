@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Color Pop</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      overflow: hidden;
+    }
+    #wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px; width: 100%; max-width: 420px; padding: 10px;
+    }
+    #hud {
+      width: 100%; display: flex; justify-content: space-between;
+      align-items: center; padding: 4px 10px;
+      color: #9ca3af; font-size: clamp(12px,3.2vw,15px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    #target-area {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px;
+    }
+    #target-label {
+      font-size: clamp(13px,3.5vw,16px); color: #9ca3af; letter-spacing: 1px;
+    }
+    #target-circle {
+      width: clamp(60px,18vw,80px); height: clamp(60px,18vw,80px);
+      border-radius: 50%; border: 4px solid #fff;
+      box-shadow: 0 0 20px rgba(255,255,255,0.4);
+      transition: background 0.3s;
+    }
+    canvas {
+      display: block; border-radius: 16px;
+      background: #0d0d1a;
+    }
+    #timer-bar-wrap {
+      width: 100%; height: 10px; background: #1a1a2e;
+      border-radius: 99px; overflow: hidden;
+    }
+    #timer-bar {
+      height: 100%; background: linear-gradient(90deg,#a78bfa,#60a5fa);
+      border-radius: 99px; transition: width 0.1s linear;
+    }
+    #msg { font-size: clamp(10px,2.6vw,12px); color: #6b7280; min-height:16px; text-align:center; }
+    .ov {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; padding: 24px;
+      background: rgba(6,6,18,0.93); z-index: 10;
+    }
+    .ov h1 { font-size: clamp(28px,9vw,52px); color: #a78bfa; text-shadow: 0 0 24px #a78bfa; letter-spacing: 3px; text-align:center; }
+    .ov p { font-size: clamp(14px,3.8vw,18px); color: #9ca3af; text-align:center; max-width:320px; line-height:1.6; }
+    .ov .big-emoji { font-size: clamp(52px,16vw,80px); }
+    .btn {
+      font-family: inherit; font-size: clamp(15px,4vw,18px);
+      background: #7c3aed; color: #fff;
+      border: none; border-radius: 99px;
+      padding: 12px 36px; cursor: pointer;
+      box-shadow: 0 0 20px rgba(124,58,237,0.5);
+    }
+    .btn:hover { background: #6d28d9; }
+    .ibtn {
+      font-family: inherit; font-size: clamp(11px,2.8vw,13px);
+      background: #1a1a2e; color: #9ca3af;
+      border: 1px solid #3d3d6e; border-radius: 99px;
+      padding: 7px 16px; cursor: pointer;
+    }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; margin-top: 4px; }
+    a#back:hover { color: #9ca3af; }
+    .stage-badge {
+      font-size: clamp(11px,3vw,13px); color: #34d399;
+      background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3);
+      border-radius: 99px; padding: 3px 12px;
+    }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>⭐ Score: <span id="score-val">0</span></div>
+    <div class="stage-badge">Stage <span id="stage-val">1</span></div>
+    <div>❤️ <span id="lives-val">3</span></div>
+  </div>
+  <div id="target-area">
+    <div id="target-label">TAP THIS COLOR!</div>
+    <div id="target-circle"></div>
+  </div>
+  <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+  <canvas id="cvs"></canvas>
+  <div id="msg"></div>
+  <div style="display:flex;gap:10px;margin-top:4px;">
+    <button class="ibtn" onclick="restartGame()">🔄 Restart</button>
+  </div>
+  <a id="back" href="../../index.html">← Back to Games</a>
+</div>
+
+<!-- Start Screen -->
+<div class="ov" id="start-ov">
+  <div class="big-emoji">🟡</div>
+  <h1>Color Pop!</h1>
+  <p>A circle shows a color at the top.<br>TAP all the bubbles of that color!<br>Don't tap the wrong ones! 🎨</p>
+  <button class="btn" onclick="startGame()">▶ Play</button>
+</div>
+
+<!-- Stage Clear -->
+<div class="ov" id="stage-ov" style="display:none;">
+  <div class="big-emoji" id="stage-emoji">🌟</div>
+  <h1 id="stage-title">Stage Clear!</h1>
+  <p id="stage-msg">Great job! Ready for more?</p>
+  <button class="btn" onclick="nextStage()">Next Stage ▶</button>
+</div>
+
+<!-- Game Over -->
+<div class="ov" id="over-ov" style="display:none;">
+  <div class="big-emoji">😢</div>
+  <h1>Game Over</h1>
+  <p id="over-msg">Score: 0</p>
+  <button class="btn" onclick="restartGame()">🔄 Try Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<!-- Win Screen -->
+<div class="ov" id="win-ov" style="display:none;">
+  <div class="big-emoji">🏆</div>
+  <h1>You Win!</h1>
+  <p id="win-msg">Amazing! All stages complete!</p>
+  <button class="btn" onclick="restartGame()">🎉 Play Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<script>
+const COLORS = [
+  { name: 'Red',    hex: '#ef4444' },
+  { name: 'Blue',   hex: '#3b82f6' },
+  { name: 'Yellow', hex: '#fbbf24' },
+  { name: 'Green',  hex: '#22c55e' },
+  { name: 'Pink',   hex: '#ec4899' },
+  { name: 'Orange', hex: '#f97316' },
+  { name: 'Purple', hex: '#a855f7' },
+];
+
+const STAGES = [
+  { bubbleCount: 8,  colorCount: 2, speed: 0.3, timePerBubble: 4.5, label: '2 Colors, Easy' },
+  { bubbleCount: 10, colorCount: 3, speed: 0.4, timePerBubble: 4.0, label: '3 Colors' },
+  { bubbleCount: 12, colorCount: 3, speed: 0.55, timePerBubble: 3.5, label: '3 Colors, Faster' },
+  { bubbleCount: 14, colorCount: 4, speed: 0.65, timePerBubble: 3.0, label: '4 Colors' },
+  { bubbleCount: 16, colorCount: 4, speed: 0.8, timePerBubble: 2.8, label: '4 Colors, Fast' },
+  { bubbleCount: 18, colorCount: 5, speed: 0.9, timePerBubble: 2.5, label: '5 Colors' },
+  { bubbleCount: 20, colorCount: 5, speed: 1.1, timePerBubble: 2.2, label: 'Speed Round!' },
+];
+
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+const scoreEl = document.getElementById('score-val');
+const stageEl = document.getElementById('stage-val');
+const livesEl = document.getElementById('lives-val');
+const targetCircle = document.getElementById('target-circle');
+const timerBar = document.getElementById('timer-bar');
+const msgEl = document.getElementById('msg');
+
+let W, H;
+let bubbles = [], targetColor, score, lives, stage, running;
+let popsNeeded, popsGot;
+let stageTimer, stageDuration;
+let animId;
+let particles = [];
+
+function resize() {
+  const ww = Math.min(window.innerWidth, 420) - 20;
+  W = ww;
+  H = Math.min(window.innerHeight * 0.52, 380);
+  cvs.width = W; cvs.height = H;
+}
+
+function randBetween(a, b) { return a + Math.random() * (b - a); }
+
+function spawnBubbles() {
+  const cfg = STAGES[stage];
+  bubbles = [];
+  const usedColors = shuffle(COLORS.slice()).slice(0, cfg.colorCount);
+  // ensure at least 2 of target color
+  const targetIdx = Math.floor(Math.random() * usedColors.length);
+  targetColor = usedColors[targetIdx];
+  targetCircle.style.background = targetColor.hex;
+
+  const r = Math.min(W, H) * 0.075;
+  let attempts = 0;
+  let count = 0;
+  while (count < cfg.bubbleCount && attempts < 500) {
+    attempts++;
+    const x = randBetween(r + 4, W - r - 4);
+    const y = randBetween(r + 4, H - r - 4);
+    // no overlap
+    let ok = true;
+    for (const b of bubbles) {
+      if (Math.hypot(b.x - x, b.y - y) < r * 2.2) { ok = false; break; }
+    }
+    if (!ok) continue;
+    const color = usedColors[Math.floor(Math.random() * usedColors.length)];
+    const dx = randBetween(-cfg.speed, cfg.speed) || 0.2;
+    const dy = randBetween(-cfg.speed, cfg.speed) || 0.2;
+    bubbles.push({ x, y, r, color, dx, dy, pop: false, popAnim: 0, scale: 0, born: Date.now() });
+    count++;
+  }
+  // guarantee at least 2 target
+  let targetCount = bubbles.filter(b => b.color === targetColor).length;
+  while (targetCount < 2) {
+    const idx = bubbles.findIndex(b => b.color !== targetColor);
+    if (idx === -1) break;
+    bubbles[idx].color = targetColor;
+    targetCount++;
+  }
+  popsNeeded = bubbles.filter(b => b.color === targetColor).length;
+  popsGot = 0;
+  stageDuration = popsNeeded * cfg.timePerBubble * 1000;
+  stageTimer = Date.now();
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function startGame() {
+  document.getElementById('start-ov').style.display = 'none';
+  score = 0; lives = 3; stage = 0; running = true;
+  updateHUD();
+  resize();
+  spawnBubbles();
+  if (animId) cancelAnimationFrame(animId);
+  loop();
+}
+
+function restartGame() {
+  document.getElementById('over-ov').style.display = 'none';
+  document.getElementById('win-ov').style.display = 'none';
+  document.getElementById('stage-ov').style.display = 'none';
+  startGame();
+}
+
+function nextStage() {
+  document.getElementById('stage-ov').style.display = 'none';
+  stage++;
+  if (stage >= STAGES.length) {
+    showWin();
+    return;
+  }
+  stageEl.textContent = stage + 1;
+  spawnBubbles();
+  running = true;
+}
+
+function updateHUD() {
+  scoreEl.textContent = score;
+  stageEl.textContent = stage + 1;
+  livesEl.textContent = lives;
+}
+
+function showWin() {
+  running = false;
+  document.getElementById('win-msg').textContent = `🌟 Final Score: ${score} 🌟`;
+  document.getElementById('win-ov').style.display = 'flex';
+}
+
+function showGameOver() {
+  running = false;
+  document.getElementById('over-msg').textContent = `Score: ${score}`;
+  document.getElementById('over-ov').style.display = 'flex';
+}
+
+function showStageClear() {
+  running = false;
+  const emojis = ['🌟','🎉','🥳','🚀','🎊','🌈','🏆'];
+  document.getElementById('stage-emoji').textContent = emojis[stage % emojis.length];
+  document.getElementById('stage-title').textContent = `Stage ${stage + 1} Clear!`;
+  document.getElementById('stage-msg').textContent = `${STAGES[stage + 1] ? STAGES[stage + 1].label : 'Final Stage!'} — Score: ${score}`;
+  document.getElementById('stage-ov').style.display = 'flex';
+}
+
+function spawnParticles(x, y, color) {
+  for (let i = 0; i < 12; i++) {
+    const angle = (Math.PI * 2 * i) / 12;
+    particles.push({
+      x, y, color,
+      vx: Math.cos(angle) * randBetween(1.5, 4),
+      vy: Math.sin(angle) * randBetween(1.5, 4),
+      life: 1, r: randBetween(3, 6)
+    });
+  }
+}
+
+function handleTap(ex, ey) {
+  if (!running) return;
+  const rect = cvs.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  const mx = (ex - rect.left) * scaleX;
+  const my = (ey - rect.top) * scaleY;
+
+  let hit = false;
+  for (const b of bubbles) {
+    if (b.pop) continue;
+    if (Math.hypot(b.x - mx, b.y - my) < b.r + 6) {
+      b.pop = true; b.popAnim = 1;
+      if (b.color === targetColor) {
+        spawnParticles(b.x, b.y, b.color.hex);
+        score += 10;
+        popsGot++;
+        updateHUD();
+        msgEl.textContent = '✅ Nice!';
+        setTimeout(() => { if (msgEl.textContent === '✅ Nice!') msgEl.textContent = ''; }, 600);
+        if (popsGot >= popsNeeded) {
+          setTimeout(() => {
+            if (stage < STAGES.length - 1) showStageClear();
+            else showWin();
+          }, 400);
+        }
+      } else {
+        lives--;
+        updateHUD();
+        msgEl.textContent = '❌ Wrong color!';
+        setTimeout(() => { if (msgEl.textContent === '❌ Wrong color!') msgEl.textContent = ''; }, 700);
+        if (lives <= 0) setTimeout(showGameOver, 300);
+      }
+      hit = true;
+      break;
+    }
+  }
+}
+
+cvs.addEventListener('pointerdown', e => handleTap(e.clientX, e.clientY));
+
+function drawBubble(b, now) {
+  if (b.pop) {
+    b.popAnim -= 0.07;
+    if (b.popAnim <= 0) return;
+    const sc = 1 + (1 - b.popAnim) * 0.5;
+    ctx.save();
+    ctx.globalAlpha = b.popAnim;
+    ctx.translate(b.x, b.y);
+    ctx.scale(sc, sc);
+    ctx.beginPath();
+    ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = b.color.hex;
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+  // spawn scale-in
+  const age = (now - b.born) / 300;
+  if (b.scale < 1) b.scale = Math.min(1, age);
+
+  b.x += b.dx;
+  b.y += b.dy;
+  if (b.x - b.r < 0) { b.x = b.r; b.dx = Math.abs(b.dx); }
+  if (b.x + b.r > W) { b.x = W - b.r; b.dx = -Math.abs(b.dx); }
+  if (b.y - b.r < 0) { b.y = b.r; b.dy = Math.abs(b.dy); }
+  if (b.y + b.r > H) { b.y = H - b.r; b.dy = -Math.abs(b.dy); }
+
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  ctx.scale(b.scale, b.scale);
+  // shadow glow
+  ctx.shadowColor = b.color.hex;
+  ctx.shadowBlur = 14;
+  ctx.beginPath();
+  ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+  ctx.fillStyle = b.color.hex;
+  ctx.fill();
+  // shine
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(-b.r * 0.3, -b.r * 0.3, b.r * 0.28, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fill();
+  ctx.restore();
+}
+
+function loop() {
+  if (!running && particles.length === 0) { animId = requestAnimationFrame(loop); return; }
+  const now = Date.now();
+  ctx.clearRect(0, 0, W, H);
+
+  // timer bar
+  if (running) {
+    const elapsed = now - stageTimer;
+    const pct = Math.max(0, 1 - elapsed / stageDuration);
+    timerBar.style.width = (pct * 100) + '%';
+    if (pct <= 0 && running) {
+      // time up = lose a life and respawn
+      lives--;
+      updateHUD();
+      msgEl.textContent = "⏰ Time's up!";
+      setTimeout(() => { msgEl.textContent = ''; }, 700);
+      if (lives <= 0) { showGameOver(); }
+      else { spawnBubbles(); }
+    }
+  }
+
+  // draw bubbles
+  for (const b of bubbles) drawBubble(b, now);
+
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.12; p.life -= 0.03;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  animId = requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', () => {
+  resize();
+  if (running) spawnBubbles();
+});
+resize();
+</script>
+</body>
+</html>

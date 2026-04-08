@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Shadow Friends</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      overflow: hidden;
+    }
+    #wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px; width: 100%; max-width: 440px; padding: 10px;
+    }
+    #hud {
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 10px; color: #9ca3af; font-size: clamp(12px,3.2vw,15px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    .stage-badge { font-size: clamp(11px,3vw,13px); color: #34d399; background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3); border-radius: 99px; padding: 3px 12px; }
+    #game-area {
+      width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px;
+    }
+    #shadows-row {
+      display: flex; justify-content: center; align-items: flex-end;
+      gap: 10px; flex-wrap: wrap; min-height: 90px;
+    }
+    .shadow-slot {
+      width: clamp(64px,18vw,88px); height: clamp(64px,18vw,88px);
+      background: rgba(255,255,255,0.04);
+      border: 3px dashed rgba(255,255,255,0.15);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(34px,9vw,50px);
+      position: relative;
+      transition: border-color 0.2s, background 0.2s;
+      filter: grayscale(1) brightness(0.25) contrast(1.6);
+    }
+    .shadow-slot.hover { border-color: #a78bfa; background: rgba(167,139,250,0.1); filter: grayscale(1) brightness(0.35) contrast(1.6); }
+    .shadow-slot.solved { filter: none; background: rgba(52,211,153,0.12); border-color: #34d399; border-style: solid; }
+    #divider {
+      width: 80%; height: 2px;
+      background: linear-gradient(90deg, transparent, #3d3d6e, transparent);
+    }
+    #animals-row {
+      display: flex; justify-content: center; align-items: center;
+      gap: 10px; flex-wrap: wrap; min-height: 90px;
+    }
+    .animal-tile {
+      width: clamp(64px,18vw,88px); height: clamp(64px,18vw,88px);
+      background: #1a1a2e;
+      border: 2px solid #2d2d4e;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(34px,9vw,50px);
+      cursor: grab; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .animal-tile:active, .animal-tile.dragging { cursor: grabbing; transform: scale(1.18); box-shadow: 0 8px 28px rgba(124,58,237,0.5); border-color: #7c3aed; z-index: 100; }
+    .animal-tile.placed { opacity: 0; pointer-events: none; }
+    #msg { font-size: clamp(13px,3.5vw,15px); color: #6b7280; min-height: 22px; text-align: center; font-weight: 600; }
+    .btn { font-family: inherit; font-size: clamp(15px,4vw,18px); background: #7c3aed; color: #fff; border: none; border-radius: 99px; padding: 12px 36px; cursor: pointer; box-shadow: 0 0 20px rgba(124,58,237,0.5); }
+    .btn:hover { background: #6d28d9; }
+    .ibtn { font-family: inherit; font-size: clamp(11px,2.8vw,13px); background: #1a1a2e; color: #9ca3af; border: 1px solid #3d3d6e; border-radius: 99px; padding: 7px 16px; cursor: pointer; }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; margin-top: 2px; }
+    a#back:hover { color: #9ca3af; }
+    .ov { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; background: rgba(6,6,18,0.93); z-index: 10; }
+    .ov h1 { font-size: clamp(28px,9vw,52px); color: #a78bfa; text-shadow: 0 0 24px #a78bfa; letter-spacing: 3px; text-align: center; }
+    .ov p { font-size: clamp(14px,3.8vw,18px); color: #9ca3af; text-align: center; max-width: 320px; line-height: 1.6; }
+    .ov .big-emoji { font-size: clamp(52px,16vw,80px); }
+    /* floating drag ghost */
+    #ghost { position: fixed; pointer-events: none; z-index: 999; font-size: clamp(34px,9vw,50px); transform: translate(-50%,-50%); display: none; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>⭐ Score: <span id="score-val">0</span></div>
+    <div class="stage-badge">Stage <span id="stage-val">1</span></div>
+    <div>🎯 <span id="left-val">0</span> left</div>
+  </div>
+  <div id="game-area">
+    <div id="shadows-row"></div>
+    <div id="divider"></div>
+    <div id="animals-row"></div>
+  </div>
+  <div id="msg"></div>
+  <div style="display:flex;gap:10px;margin-top:4px;">
+    <button class="ibtn" onclick="restartGame()">🔄 Restart</button>
+  </div>
+  <a id="back" href="../../index.html">← Back to Games</a>
+</div>
+
+<div id="ghost"></div>
+
+<!-- Start -->
+<div class="ov" id="start-ov">
+  <div class="big-emoji">🐘</div>
+  <h1>Shadow Friends!</h1>
+  <p>Drag each animal to its matching shadow!<br>Find all the friends hiding in the dark! 🌙</p>
+  <button class="btn" onclick="startGame()">▶ Play</button>
+</div>
+
+<!-- Stage Clear -->
+<div class="ov" id="stage-ov" style="display:none;">
+  <div class="big-emoji" id="stage-emoji">🌟</div>
+  <h1 id="stage-title">Stage Clear!</h1>
+  <p id="stage-msg">You matched them all!</p>
+  <button class="btn" onclick="nextStage()">Next Stage ▶</button>
+</div>
+
+<!-- Win -->
+<div class="ov" id="win-ov" style="display:none;">
+  <div class="big-emoji">🏆</div>
+  <h1>Amazing!</h1>
+  <p id="win-msg">You matched all the animal friends!</p>
+  <button class="btn" onclick="restartGame()">🎉 Play Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<script>
+const ALL_ANIMALS = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐙','🦋','🐢','🦄','🐧','🦀','🦆','🐝','🦓','🦒','🐠','🦜','🐬','🦔','🦘','🐞'];
+
+const STAGES = [
+  { count: 3, label: '3 Animals' },
+  { count: 4, label: '4 Animals' },
+  { count: 5, label: '5 Animals' },
+  { count: 5, label: 'Faster!' },
+  { count: 6, label: '6 Animals' },
+  { count: 6, label: 'Speed Mix!' },
+  { count: 7, label: 'Big Family!' },
+];
+
+let stage = 0, score = 0;
+let animals = [], slots = [], solved = 0, total = 0;
+let dragEl = null, dragAnimal = null, ghostEl;
+let startX, startY;
+
+const scoreEl = document.getElementById('score-val');
+const stageEl = document.getElementById('stage-val');
+const leftEl = document.getElementById('left-val');
+const msgEl = document.getElementById('msg');
+const shadowsRow = document.getElementById('shadows-row');
+const animalsRow = document.getElementById('animals-row');
+ghostEl = document.getElementById('ghost');
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildStage() {
+  const cfg = STAGES[stage];
+  shadowsRow.innerHTML = '';
+  animalsRow.innerHTML = '';
+  solved = 0;
+  total = cfg.count;
+
+  // pick random animals
+  animals = shuffle(ALL_ANIMALS.slice()).slice(0, cfg.count);
+  // shuffle order for bottom row
+  const shuffled = shuffle(animals.slice());
+
+  // shadow slots
+  slots = [];
+  animals.forEach((em, i) => {
+    const div = document.createElement('div');
+    div.className = 'shadow-slot';
+    div.dataset.animal = em;
+    div.dataset.index = i;
+    div.textContent = em;
+    shadowsRow.appendChild(div);
+    slots.push(div);
+  });
+
+  // animal tiles
+  shuffled.forEach(em => {
+    const div = document.createElement('div');
+    div.className = 'animal-tile';
+    div.dataset.animal = em;
+    div.textContent = em;
+    animalsRow.appendChild(div);
+    setupDrag(div);
+  });
+
+  leftEl.textContent = total;
+  msgEl.textContent = 'Drag each animal to its shadow!';
+}
+
+function setupDrag(tile) {
+  tile.addEventListener('pointerdown', e => {
+    if (tile.classList.contains('placed')) return;
+    e.preventDefault();
+    dragEl = tile;
+    dragAnimal = tile.dataset.animal;
+    ghostEl.textContent = dragAnimal;
+    ghostEl.style.display = 'block';
+    moveGhost(e.clientX, e.clientY);
+    tile.classList.add('dragging');
+    tile.setPointerCapture(e.pointerId);
+  });
+  tile.addEventListener('pointermove', e => {
+    if (!dragEl || dragEl !== tile) return;
+    e.preventDefault();
+    moveGhost(e.clientX, e.clientY);
+    // highlight nearest slot
+    const target = findSlotAt(e.clientX, e.clientY);
+    slots.forEach(s => s.classList.remove('hover'));
+    if (target) target.classList.add('hover');
+  });
+  tile.addEventListener('pointerup', e => {
+    if (!dragEl || dragEl !== tile) return;
+    tile.classList.remove('dragging');
+    ghostEl.style.display = 'none';
+    slots.forEach(s => s.classList.remove('hover'));
+    const target = findSlotAt(e.clientX, e.clientY);
+    if (target) {
+      tryDrop(tile, target);
+    }
+    dragEl = null; dragAnimal = null;
+  });
+  tile.addEventListener('pointercancel', () => {
+    if (dragEl === tile) {
+      tile.classList.remove('dragging');
+      ghostEl.style.display = 'none';
+      slots.forEach(s => s.classList.remove('hover'));
+      dragEl = null; dragAnimal = null;
+    }
+  });
+}
+
+function moveGhost(cx, cy) {
+  ghostEl.style.left = cx + 'px';
+  ghostEl.style.top = cy + 'px';
+}
+
+function findSlotAt(cx, cy) {
+  for (const s of slots) {
+    if (s.classList.contains('solved')) continue;
+    const r = s.getBoundingClientRect();
+    const pad = 14;
+    if (cx >= r.left - pad && cx <= r.right + pad && cy >= r.top - pad && cy <= r.bottom + pad) return s;
+  }
+  return null;
+}
+
+function tryDrop(tile, slot) {
+  if (slot.classList.contains('solved')) {
+    msgEl.textContent = '⚠️ Already matched!';
+    setTimeout(() => { msgEl.textContent = ''; }, 700);
+    return;
+  }
+  if (tile.dataset.animal === slot.dataset.animal) {
+    // correct!
+    slot.classList.add('solved');
+    slot.classList.remove('hover');
+    tile.classList.add('placed');
+    solved++;
+    score += 15;
+    scoreEl.textContent = score;
+    leftEl.textContent = total - solved;
+    msgEl.textContent = '✅ Great match!';
+    setTimeout(() => { if (msgEl.textContent === '✅ Great match!') msgEl.textContent = ''; }, 700);
+    if (solved >= total) {
+      setTimeout(() => {
+        if (stage < STAGES.length - 1) showStageClear();
+        else showWin();
+      }, 500);
+    }
+  } else {
+    // wrong
+    msgEl.textContent = '❌ Oops! Try again!';
+    tile.style.borderColor = '#ef4444';
+    setTimeout(() => {
+      tile.style.borderColor = '';
+      if (msgEl.textContent === '❌ Oops! Try again!') msgEl.textContent = '';
+    }, 700);
+  }
+}
+
+function showStageClear() {
+  const emojis = ['🌟','🎉','🥳','🚀','🎊','🌈','🏆'];
+  document.getElementById('stage-emoji').textContent = emojis[stage % emojis.length];
+  document.getElementById('stage-title').textContent = `Stage ${stage + 1} Clear!`;
+  document.getElementById('stage-msg').textContent = `You matched all ${total} animals! Score: ${score}`;
+  document.getElementById('stage-ov').style.display = 'flex';
+}
+
+function showWin() {
+  document.getElementById('win-msg').textContent = `All ${STAGES.length} stages complete! Final Score: ${score} ⭐`;
+  document.getElementById('win-ov').style.display = 'flex';
+}
+
+function nextStage() {
+  document.getElementById('stage-ov').style.display = 'none';
+  stage++;
+  stageEl.textContent = stage + 1;
+  buildStage();
+}
+
+function startGame() {
+  document.getElementById('start-ov').style.display = 'none';
+  stage = 0; score = 0;
+  scoreEl.textContent = 0;
+  stageEl.textContent = 1;
+  buildStage();
+}
+
+function restartGame() {
+  document.getElementById('over-ov') && (document.getElementById('over-ov').style.display = 'none');
+  document.getElementById('win-ov').style.display = 'none';
+  document.getElementById('stage-ov').style.display = 'none';
+  startGame();
+}
+</script>
+</body>
+</html>
