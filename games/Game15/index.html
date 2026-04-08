@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Fruit Catcher</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      overflow: hidden;
+    }
+    #wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; width: 100%; max-width: 420px; padding: 8px;
+    }
+    #hud {
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 8px; color: #9ca3af; font-size: clamp(12px,3.2vw,15px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    .stage-badge { font-size: clamp(11px,3vw,13px); color: #34d399; background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3); border-radius: 99px; padding: 3px 12px; }
+    canvas { display: block; border-radius: 16px; background: #0d0d1a; touch-action: none; }
+    #progress-wrap { width: 100%; display: flex; align-items: center; gap: 8px; }
+    #progress-label { font-size: clamp(10px,2.6vw,12px); color: #6b7280; white-space: nowrap; }
+    #progress-bar-bg { flex: 1; height: 8px; background: #1a1a2e; border-radius: 99px; overflow: hidden; }
+    #progress-bar { height: 100%; background: linear-gradient(90deg,#34d399,#60a5fa); border-radius: 99px; transition: width 0.2s; }
+    #msg { font-size: clamp(12px,3vw,14px); color: #6b7280; min-height: 18px; text-align: center; font-weight: 600; }
+    #controls {
+      display: flex; gap: 8px; margin-top: 2px;
+    }
+    .ctrl-btn {
+      font-size: clamp(22px,6vw,30px);
+      background: #1a1a2e; color: #c4b5fd;
+      border: 1px solid #3d3d6e; border-radius: 12px;
+      width: clamp(54px,15vw,68px); height: clamp(54px,15vw,68px);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .ctrl-btn:active { background: #2d2d4e; }
+    .ibtn { font-family: inherit; font-size: clamp(11px,2.8vw,13px); background: #1a1a2e; color: #9ca3af; border: 1px solid #3d3d6e; border-radius: 99px; padding: 7px 16px; cursor: pointer; }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; margin-top: 2px; }
+    a#back:hover { color: #9ca3af; }
+    .ov { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; background: rgba(6,6,18,0.93); z-index: 10; }
+    .ov h1 { font-size: clamp(28px,9vw,52px); color: #a78bfa; text-shadow: 0 0 24px #a78bfa; letter-spacing: 3px; text-align: center; }
+    .ov p { font-size: clamp(14px,3.8vw,18px); color: #9ca3af; text-align: center; max-width: 320px; line-height: 1.6; }
+    .ov .big-emoji { font-size: clamp(52px,16vw,80px); }
+    .btn { font-family: inherit; font-size: clamp(15px,4vw,18px); background: #7c3aed; color: #fff; border: none; border-radius: 99px; padding: 12px 36px; cursor: pointer; box-shadow: 0 0 20px rgba(124,58,237,0.5); }
+    .btn:hover { background: #6d28d9; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>⭐ Score: <span id="score-val">0</span></div>
+    <div class="stage-badge">Stage <span id="stage-val">1</span></div>
+    <div>❤️ <span id="lives-val">3</span></div>
+  </div>
+  <canvas id="cvs"></canvas>
+  <div id="progress-wrap">
+    <div id="progress-label">🍎 <span id="caught-val">0</span>/<span id="goal-val">10</span></div>
+    <div id="progress-bar-bg"><div id="progress-bar" style="width:0%"></div></div>
+  </div>
+  <div id="msg"></div>
+  <div id="controls">
+    <div class="ctrl-btn" id="btn-left">◀</div>
+    <div class="ctrl-btn" id="btn-right">▶</div>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:4px;">
+    <button class="ibtn" onclick="restartGame()">🔄 Restart</button>
+  </div>
+  <a id="back" href="../../index.html">← Back to Games</a>
+</div>
+
+<!-- Start -->
+<div class="ov" id="start-ov">
+  <div class="big-emoji">🧺</div>
+  <h1>Fruit Catcher!</h1>
+  <p>Move the basket to catch falling fruits! 🍎🍊🍇<br>Avoid the <strong style="color:#ef4444">💣 bombs</strong>!<br>Use arrow buttons or swipe left/right!</p>
+  <button class="btn" onclick="startGame()">▶ Play</button>
+</div>
+
+<!-- Stage Clear -->
+<div class="ov" id="stage-ov" style="display:none;">
+  <div class="big-emoji" id="stage-emoji">🌟</div>
+  <h1 id="stage-title">Stage Clear!</h1>
+  <p id="stage-msg">Great catching!</p>
+  <button class="btn" onclick="nextStage()">Next Stage ▶</button>
+</div>
+
+<!-- Game Over -->
+<div class="ov" id="over-ov" style="display:none;">
+  <div class="big-emoji">😢</div>
+  <h1>Game Over</h1>
+  <p id="over-msg">Score: 0</p>
+  <button class="btn" onclick="restartGame()">🔄 Try Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<!-- Win -->
+<div class="ov" id="win-ov" style="display:none;">
+  <div class="big-emoji">🏆</div>
+  <h1>You Win!</h1>
+  <p id="win-msg">Amazing basket skills!</p>
+  <button class="btn" onclick="restartGame()">🎉 Play Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<script>
+const FRUITS = ['🍎','🍊','🍋','🍇','🍓','🍑','🍒','🥝','🍌','🍉'];
+const STAGES = [
+  { goal: 8,  bombRate: 0,    fallSpeed: 1.8, spawnRate: 110, label: 'No bombs!' },
+  { goal: 10, bombRate: 0.12, fallSpeed: 2.2, spawnRate: 100, label: 'Watch out! 💣' },
+  { goal: 12, bombRate: 0.18, fallSpeed: 2.6, spawnRate: 90,  label: 'Faster!' },
+  { goal: 14, bombRate: 0.22, fallSpeed: 3.1, spawnRate: 80,  label: 'More bombs!' },
+  { goal: 16, bombRate: 0.25, fallSpeed: 3.6, spawnRate: 72,  label: 'Super Fast!' },
+  { goal: 18, bombRate: 0.28, fallSpeed: 4.1, spawnRate: 65,  label: 'Expert!' },
+  { goal: 20, bombRate: 0.3,  fallSpeed: 4.8, spawnRate: 55,  label: 'Fruit Master!' },
+];
+
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+const scoreEl = document.getElementById('score-val');
+const stageEl = document.getElementById('stage-val');
+const livesEl = document.getElementById('lives-val');
+const caughtEl = document.getElementById('caught-val');
+const goalEl = document.getElementById('goal-val');
+const progressBar = document.getElementById('progress-bar');
+const msgEl = document.getElementById('msg');
+
+let W, H;
+let basket, items, score, lives, stage, running;
+let caught, goal;
+let animId, frameCount;
+let particles = [];
+let keys = { left: false, right: false };
+let touchStartX = null;
+
+const BASKET_W_FRAC = 0.22;
+const BASKET_H = 36;
+const ITEM_SIZE = 36;
+
+function resize() {
+  const ww = Math.min(window.innerWidth, 420) - 20;
+  W = ww;
+  H = Math.min(window.innerHeight * 0.48, 360);
+  cvs.width = W; cvs.height = H;
+}
+
+function initStage() {
+  const cfg = STAGES[stage];
+  items = [];
+  frameCount = 0;
+  caught = 0;
+  goal = cfg.goal;
+  goalEl.textContent = goal;
+  caughtEl.textContent = 0;
+  progressBar.style.width = '0%';
+  if (!basket) basket = { x: W / 2, y: H - BASKET_H / 2 - 6, w: W * BASKET_W_FRAC, speed: 0 };
+  basket.x = W / 2;
+}
+
+function spawnItem() {
+  const cfg = STAGES[stage];
+  const isBomb = Math.random() < cfg.bombRate;
+  const x = ITEM_SIZE / 2 + Math.random() * (W - ITEM_SIZE);
+  items.push({
+    x, y: -ITEM_SIZE / 2,
+    emoji: isBomb ? '💣' : FRUITS[Math.floor(Math.random() * FRUITS.length)],
+    isBomb,
+    vy: cfg.fallSpeed + Math.random() * 0.8,
+    alive: true, catchAnim: 0
+  });
+}
+
+function startGame() {
+  document.getElementById('start-ov').style.display = 'none';
+  score = 0; lives = 3; stage = 0; running = true;
+  basket = null;
+  resize();
+  initStage();
+  updateHUD();
+  if (animId) cancelAnimationFrame(animId);
+  loop();
+}
+
+function restartGame() {
+  ['over-ov','win-ov','stage-ov'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+  startGame();
+}
+
+function nextStage() {
+  document.getElementById('stage-ov').style.display = 'none';
+  stage++;
+  stageEl.textContent = stage + 1;
+  initStage();
+  running = true;
+}
+
+function updateHUD() {
+  scoreEl.textContent = score;
+  stageEl.textContent = stage + 1;
+  livesEl.textContent = lives;
+}
+
+function showStageClear() {
+  running = false;
+  const emojis = ['🌟','🎉','🥳','🚀','🎊','🌈','🏆'];
+  document.getElementById('stage-emoji').textContent = emojis[stage % emojis.length];
+  document.getElementById('stage-title').textContent = `Stage ${stage + 1} Clear!`;
+  const next = STAGES[stage + 1];
+  document.getElementById('stage-msg').textContent = next ? `${next.label} — Score: ${score}` : `Final stage! Score: ${score}`;
+  document.getElementById('stage-ov').style.display = 'flex';
+}
+
+function showGameOver() {
+  running = false;
+  document.getElementById('over-msg').textContent = `Score: ${score}`;
+  document.getElementById('over-ov').style.display = 'flex';
+}
+
+function showWin() {
+  running = false;
+  document.getElementById('win-msg').textContent = `All ${STAGES.length} stages done! Final Score: ${score} 🍎`;
+  document.getElementById('win-ov').style.display = 'flex';
+}
+
+function spawnParticles(x, y, isBomb) {
+  const color = isBomb ? '#ef4444' : '#34d399';
+  for (let i = 0; i < 10; i++) {
+    const a = Math.random() * Math.PI * 2;
+    particles.push({ x, y, vx: Math.cos(a) * (1.5 + Math.random() * 3), vy: Math.sin(a) * (1.5 + Math.random() * 3) - 1, r: 3 + Math.random() * 4, life: 1, color });
+  }
+}
+
+// Controls
+document.getElementById('btn-left').addEventListener('pointerdown', () => { keys.left = true; });
+document.getElementById('btn-right').addEventListener('pointerdown', () => { keys.right = true; });
+document.addEventListener('pointerup', () => { keys.left = false; keys.right = false; });
+document.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') keys.left = true; if (e.key === 'ArrowRight') keys.right = true; });
+document.addEventListener('keyup', e => { if (e.key === 'ArrowLeft') keys.left = false; if (e.key === 'ArrowRight') keys.right = false; });
+
+// Touch swipe on canvas
+cvs.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+cvs.addEventListener('touchmove', e => {
+  if (touchStartX === null || !basket) return;
+  const dx = e.touches[0].clientX - touchStartX;
+  basket.x = Math.max(basket.w / 2, Math.min(W - basket.w / 2, basket.x + dx));
+  touchStartX = e.touches[0].clientX;
+}, { passive: true });
+cvs.addEventListener('touchend', () => { touchStartX = null; });
+// Pointer move on canvas (non-touch, finger drag)
+cvs.addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse') {
+    // don't control via mouse hover, only button
+    return;
+  }
+});
+
+function drawBasket(b) {
+  const x = b.x, y = b.y, w = b.w, h = BASKET_H;
+  // basket body
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x - w/2, y - h/2);
+  ctx.lineTo(x - w/2 + 6, y + h/2);
+  ctx.lineTo(x + w/2 - 6, y + h/2);
+  ctx.lineTo(x + w/2, y - h/2);
+  ctx.closePath();
+  ctx.fillStyle = '#92400e';
+  ctx.fill();
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  // rim
+  ctx.beginPath();
+  ctx.moveTo(x - w/2 - 4, y - h/2);
+  ctx.lineTo(x + w/2 + 4, y - h/2);
+  ctx.strokeStyle = '#fde68a';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawItem(it) {
+  ctx.save();
+  ctx.font = `${ITEM_SIZE}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(it.emoji, it.x, it.y);
+  ctx.restore();
+}
+
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  const cfg = STAGES[stage];
+
+  if (running) {
+    frameCount++;
+    // spawn
+    if (frameCount % cfg.spawnRate === 0) spawnItem();
+
+    // basket movement
+    const bspeed = W * 0.012;
+    if (keys.left) basket.x = Math.max(basket.w / 2, basket.x - bspeed);
+    if (keys.right) basket.x = Math.min(W - basket.w / 2, basket.x + bspeed);
+
+    // move items & collision
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (!it.alive) { items.splice(i, 1); continue; }
+      it.y += it.vy;
+      // catch check
+      const bTop = basket.y - BASKET_H / 2;
+      const bBot = basket.y + BASKET_H / 2;
+      if (it.y + ITEM_SIZE / 2 >= bTop && it.y - ITEM_SIZE / 2 <= bBot &&
+          it.x >= basket.x - basket.w / 2 - ITEM_SIZE / 2 &&
+          it.x <= basket.x + basket.w / 2 + ITEM_SIZE / 2) {
+        it.alive = false;
+        spawnParticles(it.x, bTop, it.isBomb);
+        if (it.isBomb) {
+          lives--;
+          updateHUD();
+          msgEl.textContent = '💣 Ouch! Bomb!';
+          setTimeout(() => { if (msgEl.textContent === '💣 Ouch! Bomb!') msgEl.textContent = ''; }, 700);
+          if (lives <= 0) { setTimeout(showGameOver, 300); }
+        } else {
+          caught++;
+          score += 5;
+          updateHUD();
+          caughtEl.textContent = caught;
+          progressBar.style.width = Math.min(100, (caught / goal) * 100) + '%';
+          msgEl.textContent = '🍎 Yummy!';
+          setTimeout(() => { if (msgEl.textContent === '🍎 Yummy!') msgEl.textContent = ''; }, 500);
+          if (caught >= goal) {
+            setTimeout(() => {
+              if (stage < STAGES.length - 1) showStageClear();
+              else showWin();
+            }, 400);
+          }
+        }
+        continue;
+      }
+      // missed (fell off)
+      if (it.y > H + ITEM_SIZE) {
+        it.alive = false;
+        if (!it.isBomb) {
+          msgEl.textContent = '😬 Missed!';
+          setTimeout(() => { if (msgEl.textContent === '😬 Missed!') msgEl.textContent = ''; }, 500);
+        }
+      }
+    }
+  }
+
+  // draw items
+  for (const it of items) { if (it.alive) drawItem(it); }
+
+  // draw basket
+  if (basket) drawBasket(basket);
+
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.04;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    ctx.save(); ctx.globalAlpha = p.life;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = p.color; ctx.fill(); ctx.restore();
+  }
+
+  animId = requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', () => {
+  resize();
+  if (basket) { basket.y = H - BASKET_H / 2 - 6; basket.w = W * BASKET_W_FRAC; }
+});
+resize();
+</script>
+</body>
+</html>
