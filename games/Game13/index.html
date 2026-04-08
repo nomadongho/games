@@ -403,7 +403,7 @@ function loop() {
       // time up = lose a life and respawn
       lives--;
       updateHUD();
-      msgEl.textContent = '⏰ Time\'s up!';
+      msgEl.textContent = "⏰ Time's up!";
       setTimeout(() => { msgEl.textContent = ''; }, 700);
       if (lives <= 0) { showGameOver(); }
       else { spawnBubbles(); }
