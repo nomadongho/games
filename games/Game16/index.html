@@ -156,6 +156,8 @@ function dotPos(r, c) {
 }
 
 const TAP_TOLERANCE_MULTIPLIER = 2.5; // how many dot-radii away a tap still registers
+
+function nearestDot(px, py) {
   const s = STAGES[stage];
   let best = null, bestD = Infinity;
   for (let r = 0; r < s.rows; r++) {
