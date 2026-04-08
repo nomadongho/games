@@ -21,7 +21,7 @@
 
     header {
       text-align: center;
-      margin-bottom: 48px;
+      margin-bottom: 56px;
     }
 
     header h1 {
@@ -39,12 +39,45 @@
       color: #9ca3af;
     }
 
+    .section {
+      max-width: 1100px;
+      margin: 0 auto 56px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #2d2d4e;
+    }
+
+    .section-header .section-icon {
+      font-size: 1.6rem;
+    }
+
+    .section-header h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #c4b5fd;
+      letter-spacing: 1px;
+    }
+
+    .section-header .section-count {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: #6b7280;
+      background: #1a1a2e;
+      border: 1px solid #2d2d4e;
+      padding: 3px 10px;
+      border-radius: 99px;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 24px;
-      max-width: 1100px;
-      margin: 0 auto;
     }
 
     .card {
@@ -95,7 +128,7 @@
 
     footer {
       text-align: center;
-      margin-top: 60px;
+      margin-top: 20px;
       color: #4b5563;
       font-size: 0.85rem;
     }
@@ -107,139 +140,178 @@
     <p>nomadongho's game collection — pick a game and start playing!</p>
   </header>
 
-  <div class="grid">
-    <a class="card" href="games/Game/index.html">
-      <div class="icon">🔊</div>
-      <div class="game-title">Echo Hunt</div>
-      <div class="game-desc">A sensory hunting game where you track targets using sound waves</div>
-      <span class="badge">Game</span>
-    </a>
+  <!-- ──────────────── 🧩 Puzzle ──────────────── -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-icon">🧩</span>
+      <h2>Puzzle</h2>
+      <span class="section-count">7 games</span>
+    </div>
+    <div class="grid">
+      <a class="card" href="games/Game2/index.html">
+        <div class="icon">⚛️</div>
+        <div class="game-title">Quantum Cascade</div>
+        <div class="game-desc">A puzzle game where you trigger quantum chain reactions to reach your goal</div>
+        <span class="badge">Game2</span>
+      </a>
 
-    <a class="card" href="games/Game2/index.html">
-      <div class="icon">⚛️</div>
-      <div class="game-title">Quantum Cascade</div>
-      <div class="game-desc">A puzzle game where you trigger quantum chain reactions to reach your goal</div>
-      <span class="badge">Game2</span>
-    </a>
+      <a class="card" href="games/Game7/index.html">
+        <div class="icon">🔢</div>
+        <div class="game-title">Phase Flip</div>
+        <div class="game-desc">A 5×5 grid puzzle with 4-phase cells — tap to cycle a cell and its neighbors, get all cells to Phase 0</div>
+        <span class="badge">Game7</span>
+      </a>
 
-    <a class="card" href="games/Game3/index.html">
-      <div class="icon">👾</div>
-      <div class="game-title">ALIEN ASSAULT 2185</div>
-      <div class="game-desc">Year 2185 — a shooter game battling aliens invading Earth</div>
-      <span class="badge">Game3</span>
-    </a>
+      <a class="card" href="games/Game8/index.html">
+        <div class="icon">🎚️</div>
+        <div class="game-title">Frequency Lock</div>
+        <div class="game-desc">Adjust 7 coupled equalizer bars to match target frequencies — every move ripples to neighbors</div>
+        <span class="badge">Game8</span>
+      </a>
 
-    <a class="card" href="games/Game4/index.html">
-      <div class="icon">🪐</div>
-      <div class="game-title">Planet Return</div>
-      <div class="game-desc">A journey across space to guide planets back to their home zones</div>
-      <span class="badge">Game4</span>
-    </a>
+      <a class="card" href="games/Game10/index.html">
+        <div class="icon">💡</div>
+        <div class="game-title">Lumino</div>
+        <div class="game-desc">Place mirrors to route colored light beams to matching receivers — one mirror can serve multiple beams</div>
+        <span class="badge">Game10</span>
+      </a>
 
-    <a class="card" href="games/Game5/index.html">
-      <div class="icon">✨</div>
-      <div class="game-title">Starwave</div>
-      <div class="game-desc">A space rhythm game where you ride waves of starlight</div>
-      <span class="badge">Game5</span>
-    </a>
+      <a class="card" href="games/Game11/index.html">
+        <div class="icon">🏹</div>
+        <div class="game-title">Swap Path</div>
+        <div class="game-desc">Swap arrows on a grid to guide a walker through every star before reaching the exit</div>
+        <span class="badge">Game11</span>
+      </a>
 
-    <a class="card" href="games/Game6/index.html">
-      <div class="icon">💓</div>
-      <div class="game-title">PULSE — Echo Chain</div>
-      <div class="game-desc">A reaction game where you connect pulses to complete an echo chain</div>
-      <span class="badge">Game6</span>
-    </a>
+      <a class="card" href="games/Game12/index.html">
+        <div class="icon">🕸️</div>
+        <div class="game-title">Untangle</div>
+        <div class="game-desc">Drag nodes to eliminate all edge crossings — red means tangled, green means clear</div>
+        <span class="badge">Game12</span>
+      </a>
 
-    <a class="card" href="games/Game7/index.html">
-      <div class="icon">🔢</div>
-      <div class="game-title">Phase Flip</div>
-      <div class="game-desc">A 5×5 grid puzzle with 4-phase cells — tap to cycle a cell and its neighbors, get all cells to Phase 0</div>
-      <span class="badge">Game7</span>
-    </a>
+      <a class="card" href="games/Game16/index.html">
+        <div class="icon">🔵</div>
+        <div class="game-title">Neon Knot</div>
+        <div class="game-desc">Drag a single continuous path through every dot on the grid — each dot exactly once, no retracing</div>
+        <span class="badge">Game16</span>
+      </a>
+    </div>
+  </section>
 
-    <a class="card" href="games/Game8/index.html">
-      <div class="icon">🎚️</div>
-      <div class="game-title">Frequency Lock</div>
-      <div class="game-desc">Adjust 7 coupled equalizer bars to match target frequencies — every move ripples to neighbors</div>
-      <span class="badge">Game8</span>
-    </a>
+  <!-- ──────────────── ⚡ Action ──────────────── -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-icon">⚡</span>
+      <h2>Action</h2>
+      <span class="section-count">7 games</span>
+    </div>
+    <div class="grid">
+      <a class="card" href="games/Game/index.html">
+        <div class="icon">🔊</div>
+        <div class="game-title">Echo Hunt</div>
+        <div class="game-desc">A sensory hunting game where you track targets using sound waves</div>
+        <span class="badge">Game</span>
+      </a>
 
-    <a class="card" href="games/Game9/index.html">
-      <div class="icon">🌀</div>
-      <div class="game-title">Gravity Maze</div>
-      <div class="game-desc">Flip gravity to slide a ball through the maze — collect all gems then reach the exit</div>
-      <span class="badge">Game9</span>
-    </a>
+      <a class="card" href="games/Game3/index.html">
+        <div class="icon">👾</div>
+        <div class="game-title">ALIEN ASSAULT 2185</div>
+        <div class="game-desc">Year 2185 — a shooter game battling aliens invading Earth</div>
+        <span class="badge">Game3</span>
+      </a>
 
-    <a class="card" href="games/Runner/index.html">
-      <div class="icon">🏃</div>
-      <div class="game-title">Wall Runner</div>
-      <div class="game-desc">A speedy runner game where you run along walls and dodge obstacles</div>
-      <span class="badge">Runner</span>
-    </a>
+      <a class="card" href="games/Game6/index.html">
+        <div class="icon">💓</div>
+        <div class="game-title">PULSE — Echo Chain</div>
+        <div class="game-desc">A reaction game where you connect pulses to complete an echo chain</div>
+        <span class="badge">Game6</span>
+      </a>
 
-    <a class="card" href="games/Game10/index.html">
-      <div class="icon">💡</div>
-      <div class="game-title">Lumino</div>
-      <div class="game-desc">Place mirrors to route colored light beams to matching receivers — one mirror can serve multiple beams</div>
-      <span class="badge">Game10</span>
-    </a>
+      <a class="card" href="games/Runner/index.html">
+        <div class="icon">🏃</div>
+        <div class="game-title">Wall Runner</div>
+        <div class="game-desc">A speedy runner game where you run along walls and dodge obstacles</div>
+        <span class="badge">Runner</span>
+      </a>
 
-    <a class="card" href="games/Game11/index.html">
-      <div class="icon">🏹</div>
-      <div class="game-title">Swap Path</div>
-      <div class="game-desc">Swap arrows on a grid to guide a walker through every star before reaching the exit</div>
-      <span class="badge">Game11</span>
-    </a>
+      <a class="card" href="games/Game13/index.html">
+        <div class="icon">🫧</div>
+        <div class="game-title">Color Pop</div>
+        <div class="game-desc">Tap all the bubbles matching the target color — don't tap the wrong ones! Gets faster each stage</div>
+        <span class="badge">Game13</span>
+      </a>
 
-    <a class="card" href="games/Game12/index.html">
-      <div class="icon">🕸️</div>
-      <div class="game-title">Untangle</div>
-      <div class="game-desc">Drag nodes to eliminate all edge crossings — red means tangled, green means clear</div>
-      <span class="badge">Game12</span>
-    </a>
+      <a class="card" href="games/Game15/index.html">
+        <div class="icon">🧺</div>
+        <div class="game-title">Fruit Catcher</div>
+        <div class="game-desc">Move the basket to catch falling fruits — avoid the bombs and fill your basket each stage!</div>
+        <span class="badge">Game15</span>
+      </a>
 
-    <a class="card" href="games/Game13/index.html">
-      <div class="icon">🫧</div>
-      <div class="game-title">Color Pop</div>
-      <div class="game-desc">Tap all the bubbles matching the target color — don't tap the wrong ones! Gets faster each stage</div>
-      <span class="badge">Game13</span>
-    </a>
+      <a class="card" href="games/Game18/index.html">
+        <div class="icon">💥</div>
+        <div class="game-title">Pulse Strike</div>
+        <div class="game-desc">Tap pulsing circles at the exact moment the ring contracts to its smallest — timing is everything</div>
+        <span class="badge">Game18</span>
+      </a>
+    </div>
+  </section>
 
-    <a class="card" href="games/Game14/index.html">
-      <div class="icon">🐘</div>
-      <div class="game-title">Shadow Friends</div>
-      <div class="game-desc">Drag each animal emoji to its matching shadow — find all the friends hiding in the dark!</div>
-      <span class="badge">Game14</span>
-    </a>
+  <!-- ──────────────── 🚀 Space & Adventure ──────────────── -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-icon">🚀</span>
+      <h2>Space &amp; Adventure</h2>
+      <span class="section-count">3 games</span>
+    </div>
+    <div class="grid">
+      <a class="card" href="games/Game4/index.html">
+        <div class="icon">🪐</div>
+        <div class="game-title">Planet Return</div>
+        <div class="game-desc">A journey across space to guide planets back to their home zones</div>
+        <span class="badge">Game4</span>
+      </a>
 
-    <a class="card" href="games/Game15/index.html">
-      <div class="icon">🧺</div>
-      <div class="game-title">Fruit Catcher</div>
-      <div class="game-desc">Move the basket to catch falling fruits — avoid the bombs and fill your basket each stage!</div>
-      <span class="badge">Game15</span>
-    </a>
-    <a class="card" href="games/Game16/index.html">
-      <div class="icon">🔵</div>
-      <div class="game-title">Neon Knot</div>
-      <div class="game-desc">Drag a single continuous path through every dot on the grid — each dot exactly once, no retracing</div>
-      <span class="badge">Game16</span>
-    </a>
+      <a class="card" href="games/Game5/index.html">
+        <div class="icon">✨</div>
+        <div class="game-title">Starwave</div>
+        <div class="game-desc">A space rhythm game where you ride waves of starlight</div>
+        <span class="badge">Game5</span>
+      </a>
 
-    <a class="card" href="games/Game17/index.html">
-      <div class="icon">✨</div>
-      <div class="game-title">Glow Memory</div>
-      <div class="game-desc">Watch a pattern of cells light up briefly, then tap them all from memory — gets faster and larger every stage</div>
-      <span class="badge">Game17</span>
-    </a>
+      <a class="card" href="games/Game9/index.html">
+        <div class="icon">🌀</div>
+        <div class="game-title">Gravity Maze</div>
+        <div class="game-desc">Flip gravity to slide a ball through the maze — collect all gems then reach the exit</div>
+        <span class="badge">Game9</span>
+      </a>
+    </div>
+  </section>
 
-    <a class="card" href="games/Game18/index.html">
-      <div class="icon">💥</div>
-      <div class="game-title">Pulse Strike</div>
-      <div class="game-desc">Tap pulsing circles at the exact moment the ring contracts to its smallest — timing is everything</div>
-      <span class="badge">Game18</span>
-    </a>
-  </div>
+  <!-- ──────────────── 🧠 Memory & Brain ──────────────── -->
+  <section class="section">
+    <div class="section-header">
+      <span class="section-icon">🧠</span>
+      <h2>Memory &amp; Brain</h2>
+      <span class="section-count">2 games</span>
+    </div>
+    <div class="grid">
+      <a class="card" href="games/Game14/index.html">
+        <div class="icon">🐘</div>
+        <div class="game-title">Shadow Friends</div>
+        <div class="game-desc">Drag each animal emoji to its matching shadow — find all the friends hiding in the dark!</div>
+        <span class="badge">Game14</span>
+      </a>
+
+      <a class="card" href="games/Game17/index.html">
+        <div class="icon">✨</div>
+        <div class="game-title">Glow Memory</div>
+        <div class="game-desc">Watch a pattern of cells light up briefly, then tap them all from memory — gets faster and larger every stage</div>
+        <span class="badge">Game17</span>
+      </a>
+    </div>
+  </section>
 
   <footer>
     <p>© 2025 nomadongho · Games Collection</p>
