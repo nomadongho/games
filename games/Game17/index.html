@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Glow Memory</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    #wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 10px; width: 100%; max-width: 420px; padding: 10px;
+    }
+    #hud {
+      width: 100%; display: flex; justify-content: space-between;
+      align-items: center; padding: 4px 10px;
+      color: #9ca3af; font-size: clamp(12px,3.2vw,15px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    .stage-badge {
+      font-size: clamp(11px,3vw,13px); color: #34d399;
+      background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3);
+      border-radius: 99px; padding: 3px 12px;
+    }
+    #status {
+      font-size: clamp(14px,4vw,18px); color: #c4b5fd;
+      letter-spacing: 1px; min-height: 26px; text-align: center;
+      font-weight: 600;
+    }
+    #grid-wrap {
+      position: relative; width: 100%;
+      display: flex; justify-content: center;
+    }
+    #grid {
+      display: grid;
+      gap: 8px;
+    }
+    .cell {
+      border-radius: 12px;
+      border: 2px solid #1e1e3a;
+      background: #0d0d22;
+      cursor: pointer;
+      transition: background 0.12s, box-shadow 0.12s, border-color 0.12s;
+      position: relative;
+      overflow: hidden;
+    }
+    .cell.lit {
+      background: #a78bfa;
+      border-color: #c4b5fd;
+      box-shadow: 0 0 22px rgba(167,139,250,0.7), 0 0 44px rgba(167,139,250,0.3);
+    }
+    .cell.correct {
+      background: #34d399;
+      border-color: #6ee7b7;
+      box-shadow: 0 0 18px rgba(52,211,153,0.6);
+    }
+    .cell.wrong {
+      background: #ef4444;
+      border-color: #fca5a5;
+      box-shadow: 0 0 18px rgba(239,68,68,0.6);
+      animation: shake 0.3s ease;
+    }
+    .cell.missed {
+      background: #f97316;
+      border-color: #fdba74;
+      box-shadow: 0 0 18px rgba(249,115,22,0.6);
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+    #progress-bar-wrap {
+      width: 100%; height: 8px; background: #1a1a2e;
+      border-radius: 99px; overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%; background: linear-gradient(90deg,#a78bfa,#60a5fa);
+      border-radius: 99px; transition: width 0.12s linear;
+      width: 0%;
+    }
+    #msg { font-size: clamp(10px,2.8vw,13px); color: #6b7280;
+      min-height: 18px; text-align: center; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; }
+    a#back:hover { color: #9ca3af; }
+    .ov {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; padding: 24px;
+      background: rgba(6,6,18,0.95); z-index: 10;
+    }
+    .ov h1 { font-size: clamp(28px,9vw,52px); color: #a78bfa;
+      text-shadow: 0 0 24px #a78bfa; letter-spacing: 3px; text-align: center; }
+    .ov p { font-size: clamp(13px,3.5vw,16px); color: #9ca3af;
+      text-align: center; max-width: 300px; line-height: 1.7; }
+    .ov .big-emoji { font-size: clamp(48px,14vw,72px); }
+    .btn {
+      font-family: inherit; font-size: clamp(15px,4vw,18px);
+      background: #7c3aed; color: #fff;
+      border: none; border-radius: 99px;
+      padding: 12px 36px; cursor: pointer;
+      box-shadow: 0 0 20px rgba(124,58,237,0.5);
+    }
+    .btn:hover { background: #6d28d9; }
+    .ibtn {
+      font-family: inherit; font-size: clamp(11px,2.8vw,13px);
+      background: #1a1a2e; color: #9ca3af;
+      border: 1px solid #3d3d6e; border-radius: 99px;
+      padding: 7px 16px; cursor: pointer;
+    }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>⭐ Score: <span id="scoreVal">0</span></div>
+    <div class="stage-badge">Stage <span id="stageVal">1</span></div>
+    <div>❤️ <span id="livesVal">3</span></div>
+  </div>
+  <div id="status">Get ready…</div>
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <div id="grid-wrap">
+    <div id="grid"></div>
+  </div>
+  <div id="msg"></div>
+  <button class="ibtn" id="restartBtn" style="margin-top:4px;">🔄 Restart</button>
+  <a id="back" href="../../index.html">← Back to Games</a>
+</div>
+
+<!-- Start Screen -->
+<div class="ov" id="startOv">
+  <div class="big-emoji">✨</div>
+  <h1>Glow Memory</h1>
+  <p>A pattern of cells will light up briefly.<br><br>
+  <strong>Memorize it</strong>, then tap all the cells that were glowing.<br><br>
+  Gets harder every stage — how far can you go?</p>
+  <button class="btn" onclick="startGame()">▶ Play</button>
+</div>
+
+<!-- Stage Clear -->
+<div class="ov" id="stageOv" style="display:none;">
+  <div class="big-emoji">🌟</div>
+  <h1 id="stageTitle">Stage Clear!</h1>
+  <p id="stageMsg">Your memory is sharp!</p>
+  <button class="btn" onclick="nextStage()">Next Stage ▶</button>
+</div>
+
+<!-- Game Over -->
+<div class="ov" id="overOv" style="display:none;">
+  <div class="big-emoji">💀</div>
+  <h1>Game Over</h1>
+  <p id="overMsg">Score: 0</p>
+  <button class="btn" onclick="restartGame()">🔄 Try Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<!-- Win Screen -->
+<div class="ov" id="winOv" style="display:none;">
+  <div class="big-emoji">🏆</div>
+  <h1>Photographic!</h1>
+  <p id="winMsg">You cleared all stages!</p>
+  <button class="btn" onclick="restartGame()">🎉 Play Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<script>
+'use strict';
+
+const STAGES = [
+  { rows: 3, cols: 3, count: 3, flashMs: 2200, label: 'Warm-Up (3 cells, 2.2s)' },
+  { rows: 3, cols: 3, count: 4, flashMs: 1800, label: '4 cells, 1.8s' },
+  { rows: 4, cols: 4, count: 5, flashMs: 1600, label: '4×4 grid — 5 cells' },
+  { rows: 4, cols: 4, count: 6, flashMs: 1400, label: '6 cells, 1.4s' },
+  { rows: 4, cols: 4, count: 7, flashMs: 1200, label: '7 cells, 1.2s' },
+  { rows: 5, cols: 5, count: 9, flashMs: 1100, label: '5×5 grid — 9 cells' },
+  { rows: 5, cols: 5, count: 11, flashMs: 900, label: '11 cells, 0.9s' },
+  { rows: 5, cols: 5, count: 13, flashMs: 750, label: 'Final Flash — 13 cells, 0.75s' },
+];
+
+const gridEl = document.getElementById('grid');
+const statusEl = document.getElementById('status');
+const msgEl = document.getElementById('msg');
+const scoreEl = document.getElementById('scoreVal');
+const stageEl = document.getElementById('stageVal');
+const livesEl = document.getElementById('livesVal');
+const progressBar = document.getElementById('progress-bar');
+
+let stage = 0, score = 0, lives = 3;
+let pattern = [], tapped = [];
+let phase = 'idle'; // 'showing' | 'input' | 'idle'
+let cellSize = 64;
+
+document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+function buildGrid(rows, cols) {
+  const maxW = Math.min(window.innerWidth - 40, 380);
+  cellSize = Math.max(44, Math.min(72, Math.floor((maxW - (cols - 1) * 8) / cols)));
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cellSize}px)`;
+  gridEl.innerHTML = '';
+  for (let i = 0; i < rows * cols; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.style.width = cellSize + 'px';
+    cell.style.height = cellSize + 'px';
+    cell.dataset.idx = i;
+    cell.addEventListener('pointerdown', onCellTap);
+    gridEl.appendChild(cell);
+  }
+}
+
+function onCellTap(e) {
+  e.preventDefault();
+  if (phase !== 'input') return;
+  const idx = parseInt(e.currentTarget.dataset.idx);
+  if (tapped.includes(idx)) return;
+  const isCorrect = pattern.includes(idx);
+  tapped.push(idx);
+  const cell = gridEl.children[idx];
+  if (isCorrect) {
+    cell.classList.add('correct');
+    score += 10;
+    scoreEl.textContent = score;
+    progressBar.style.width = (tapped.filter(i => pattern.includes(i)).length / pattern.length * 100) + '%';
+    if (tapped.filter(i => pattern.includes(i)).length === pattern.length) {
+      allCorrect();
+    }
+  } else {
+    cell.classList.add('wrong');
+    lives--;
+    livesEl.textContent = lives;
+    msgEl.textContent = '❌ Wrong cell!';
+    setTimeout(() => { if (msgEl.textContent === '❌ Wrong cell!') msgEl.textContent = ''; }, 700);
+    if (lives <= 0) {
+      phase = 'idle';
+      setTimeout(showGameOver, 400);
+    }
+  }
+}
+
+function allCorrect() {
+  phase = 'idle';
+  msgEl.textContent = '✅ Perfect memory!';
+  setTimeout(() => {
+    document.getElementById('stageTitle').textContent = `Stage ${stage + 1} Clear!`;
+    document.getElementById('stageMsg').textContent =
+      stage + 1 < STAGES.length
+        ? `Next: ${STAGES[stage + 1].label}`
+        : 'You finished all stages!';
+    document.getElementById('stageOv').style.display = 'flex';
+  }, 500);
+}
+
+function showPattern() {
+  const s = STAGES[stage];
+  const total = s.rows * s.cols;
+  // Pick random pattern cells
+  const allCellIndices = Array.from({ length: total }, (_, i) => i);
+  shuffle(allCellIndices);
+  pattern = allCellIndices.slice(0, s.count);
+  tapped = [];
+  phase = 'showing';
+  statusEl.textContent = '👀 Memorize!';
+  progressBar.style.width = '100%';
+
+  // Light up pattern cells
+  for (const idx of pattern) {
+    gridEl.children[idx].classList.add('lit');
+  }
+
+  setTimeout(() => {
+    // Hide pattern
+    for (const idx of pattern) {
+      gridEl.children[idx].classList.remove('lit');
+    }
+    phase = 'input';
+    statusEl.textContent = '🎯 Tap the glowing cells!';
+    progressBar.style.width = '0%';
+    msgEl.textContent = `Find all ${s.count} cells`;
+  }, s.flashMs);
+}
+
+function startStage() {
+  const s = STAGES[stage];
+  stageEl.textContent = stage + 1;
+  buildGrid(s.rows, s.cols);
+  msgEl.textContent = '';
+  progressBar.style.width = '0%';
+  // Brief countdown then show pattern
+  statusEl.textContent = '⏳ Get ready…';
+  setTimeout(showPattern, 900);
+}
+
+function startGame() {
+  document.getElementById('startOv').style.display = 'none';
+  stage = 0; score = 0; lives = 3;
+  scoreEl.textContent = 0; livesEl.textContent = 3;
+  startStage();
+}
+
+function nextStage() {
+  document.getElementById('stageOv').style.display = 'none';
+  stage++;
+  if (stage >= STAGES.length) {
+    document.getElementById('winMsg').textContent = `🌟 Final Score: ${score} 🌟`;
+    document.getElementById('winOv').style.display = 'flex';
+    return;
+  }
+  startStage();
+}
+
+function restartGame() {
+  document.getElementById('overOv').style.display = 'none';
+  document.getElementById('winOv').style.display = 'none';
+  document.getElementById('stageOv').style.display = 'none';
+  startGame();
+}
+
+function showGameOver() {
+  // Reveal missed cells briefly
+  for (const idx of pattern) {
+    if (!tapped.includes(idx)) {
+      gridEl.children[idx].classList.add('missed');
+    }
+  }
+  setTimeout(() => {
+    document.getElementById('overMsg').textContent = `Score: ${score}`;
+    document.getElementById('overOv').style.display = 'flex';
+  }, 800);
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+window.addEventListener('resize', () => {
+  if (phase !== 'idle') {
+    const s = STAGES[stage];
+    const maxW = Math.min(window.innerWidth - 40, 380);
+    const newSize = Math.max(44, Math.min(72, Math.floor((maxW - (s.cols - 1) * 8) / s.cols)));
+    gridEl.style.gridTemplateColumns = `repeat(${s.cols}, ${newSize}px)`;
+    for (const cell of gridEl.children) {
+      cell.style.width = newSize + 'px';
+      cell.style.height = newSize + 'px';
+    }
+  }
+});
+</script>
+</body>
+</html>
