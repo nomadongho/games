@@ -128,14 +128,14 @@
 
 // Each stage: how many simultaneous circles, pulse speed, time limit (s), hits needed
 const STAGES = [
-  { count: 1, speed: 0.7,  timeLimit: 10, target: 6,  label: '1 circle — easy pace' },
-  { count: 1, speed: 0.95, timeLimit: 10, target: 8,  label: '1 circle — faster' },
-  { count: 2, speed: 1.0,  timeLimit: 12, target: 10, label: '2 circles — stay sharp' },
-  { count: 2, speed: 1.3,  timeLimit: 12, target: 12, label: '2 circles — picking up' },
-  { count: 3, speed: 1.4,  timeLimit: 15, target: 15, label: '3 circles — multitask!' },
-  { count: 3, speed: 1.7,  timeLimit: 15, target: 18, label: '3 circles — high speed' },
-  { count: 4, speed: 1.8,  timeLimit: 18, target: 22, label: '4 circles — intense' },
-  { count: 4, speed: 2.1,  timeLimit: 20, target: 26, label: 'FINAL — full throttle' },
+  { count: 1, speed: 0.6,  timeLimit: 12, target: 6,  label: '1 circle — easy pace' },
+  { count: 1, speed: 0.75, timeLimit: 12, target: 8,  label: '1 circle — warming up' },
+  { count: 2, speed: 0.85, timeLimit: 14, target: 10, label: '2 circles — stay sharp' },
+  { count: 2, speed: 1.0,  timeLimit: 14, target: 12, label: '2 circles — picking up' },
+  { count: 3, speed: 1.1,  timeLimit: 17, target: 15, label: '3 circles — multitask!' },
+  { count: 3, speed: 1.25, timeLimit: 17, target: 18, label: '3 circles — steady pace' },
+  { count: 4, speed: 1.35, timeLimit: 20, target: 22, label: '4 circles — intense' },
+  { count: 4, speed: 1.5,  timeLimit: 22, target: 26, label: 'FINAL — full throttle' },
 ];
 
 const cvs = document.getElementById('cvs');
