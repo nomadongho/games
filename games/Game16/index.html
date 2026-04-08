@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Neon Knot</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #060612;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    #wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px; width: 100%; max-width: 480px; padding: 10px;
+    }
+    #hud {
+      width: 100%; display: flex; justify-content: space-between;
+      align-items: center; padding: 4px 10px;
+      color: #9ca3af; font-size: clamp(12px,3.2vw,15px);
+    }
+    #hud span { color: #c4b5fd; font-weight: bold; }
+    .stage-badge {
+      font-size: clamp(11px,3vw,13px); color: #34d399;
+      background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.3);
+      border-radius: 99px; padding: 3px 12px;
+    }
+    canvas { display: block; border-radius: 16px; touch-action: none; }
+    #msg { font-size: clamp(11px,3vw,13px); color: #6b7280; min-height: 18px; text-align: center; }
+    #btnRow { display: flex; gap: 10px; }
+    .ibtn {
+      font-family: inherit; font-size: clamp(11px,2.8vw,13px);
+      background: #1a1a2e; color: #9ca3af;
+      border: 1px solid #3d3d6e; border-radius: 99px;
+      padding: 7px 16px; cursor: pointer;
+    }
+    .ibtn:hover { border-color: #7c3aed; color: #c4b5fd; }
+    a#back { font-size: 10px; color: #374151; text-decoration: none; margin-top: 2px; }
+    a#back:hover { color: #9ca3af; }
+    .ov {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; padding: 24px;
+      background: rgba(6,6,18,0.95); z-index: 10;
+    }
+    .ov h1 { font-size: clamp(28px,9vw,52px); color: #a78bfa;
+      text-shadow: 0 0 24px #a78bfa; letter-spacing: 3px; text-align: center; }
+    .ov p { font-size: clamp(13px,3.5vw,16px); color: #9ca3af;
+      text-align: center; max-width: 300px; line-height: 1.7; }
+    .ov .big-emoji { font-size: clamp(48px,14vw,72px); }
+    .btn {
+      font-family: inherit; font-size: clamp(15px,4vw,18px);
+      background: #7c3aed; color: #fff;
+      border: none; border-radius: 99px;
+      padding: 12px 36px; cursor: pointer;
+      box-shadow: 0 0 20px rgba(124,58,237,0.5);
+    }
+    .btn:hover { background: #6d28d9; }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>🔗 Dots: <span id="dotsVal">0/0</span></div>
+    <div class="stage-badge">Stage <span id="stageVal">1</span></div>
+    <div>🔄 <span id="resetHint">Reset</span></div>
+  </div>
+  <canvas id="cvs"></canvas>
+  <div id="msg">Drag through every dot — visit each exactly once!</div>
+  <div id="btnRow">
+    <button class="ibtn" id="resetBtn">🔄 Reset Path</button>
+  </div>
+  <a id="back" href="../../index.html">← Back to Games</a>
+</div>
+
+<!-- Start Screen -->
+<div class="ov" id="startOv">
+  <div class="big-emoji">🔵</div>
+  <h1>Neon Knot</h1>
+  <p>Drag a continuous path through <strong>every dot</strong> on the grid — each dot exactly once.<br><br>
+  Tap any dot to start, then drag through adjacent dots one by one.</p>
+  <button class="btn" onclick="startGame()">▶ Play</button>
+</div>
+
+<!-- Stage Clear -->
+<div class="ov" id="stageOv" style="display:none;">
+  <div class="big-emoji">🌟</div>
+  <h1 id="stageTitle">Stage Clear!</h1>
+  <p id="stageMsg">Nice path!</p>
+  <button class="btn" onclick="nextStage()">Next Stage ▶</button>
+</div>
+
+<!-- Win Screen -->
+<div class="ov" id="winOv" style="display:none;">
+  <div class="big-emoji">🏆</div>
+  <h1>All Knotted!</h1>
+  <p id="winMsg">You traced every knot!</p>
+  <button class="btn" onclick="restartAll()">🎉 Play Again</button>
+  <a href="../../index.html" style="color:#4b5563;font-size:13px;">Back to Games</a>
+</div>
+
+<script>
+'use strict';
+
+const STAGES = [
+  { rows: 3, cols: 3, label: '3 × 3 — Find the knot' },
+  { rows: 3, cols: 4, label: '3 × 4 — Getting longer' },
+  { rows: 4, cols: 4, label: '4 × 4 — Think ahead' },
+  { rows: 3, cols: 6, label: '3 × 6 — Wide path' },
+  { rows: 4, cols: 5, label: '4 × 5 — Mid challenge' },
+  { rows: 5, cols: 5, label: '5 × 5 — Advanced' },
+  { rows: 4, cols: 7, label: '4 × 7 — Marathon' },
+  { rows: 6, cols: 6, label: '6 × 6 — The Grand Knot' },
+];
+
+const cvs = document.getElementById('cvs');
+const ctx = cvs.getContext('2d');
+const dotsValEl = document.getElementById('dotsVal');
+const stageValEl = document.getElementById('stageVal');
+const msgEl = document.getElementById('msg');
+
+let stage = 0;
+let rows, cols, totalDots;
+let visited, path;      // visited[r][c] bool; path = [{r,c}]
+let dragging = false;
+let PAD, CW, CH, dotR;
+let W, H;
+let flashParticles = [];
+let winAnimFrame = null;
+
+function resize() {
+  const maxW = Math.min(window.innerWidth - 20, 460);
+  const maxH = Math.min(window.innerHeight - 140, 500);
+  const s = STAGES[stage];
+  const cellSize = Math.min(
+    Math.floor((maxW - 40) / s.cols),
+    Math.floor((maxH - 40) / s.rows)
+  );
+  CW = cellSize;
+  CH = cellSize;
+  PAD = 30;
+  W = PAD * 2 + (s.cols - 1) * CW;
+  H = PAD * 2 + (s.rows - 1) * CH;
+  cvs.width = W;
+  cvs.height = H;
+  dotR = Math.max(8, Math.min(14, cellSize * 0.22));
+}
+
+function dotPos(r, c) {
+  return { x: PAD + c * CW, y: PAD + r * CH };
+}
+
+const TAP_TOLERANCE_MULTIPLIER = 2.5; // how many dot-radii away a tap still registers
+  const s = STAGES[stage];
+  let best = null, bestD = Infinity;
+  for (let r = 0; r < s.rows; r++) {
+    for (let c = 0; c < s.cols; c++) {
+      const p = dotPos(r, c);
+      const d = Math.hypot(p.x - px, p.y - py);
+      if (d < bestD) { bestD = d; best = { r, c }; }
+    }
+  }
+  return bestD < dotR * TAP_TOLERANCE_MULTIPLIER ? best : null;
+}
+
+function isAdjacent(a, b) {
+  return (Math.abs(a.r - b.r) + Math.abs(a.c - b.c)) === 1;
+}
+
+function initStage() {
+  const s = STAGES[stage];
+  rows = s.rows; cols = s.cols;
+  totalDots = rows * cols;
+  visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+  path = [];
+  dragging = false;
+  flashParticles = [];
+  resize();
+  updateHUD();
+  msgEl.textContent = 'Tap any dot to start your path!';
+  draw();
+}
+
+function updateHUD() {
+  dotsValEl.textContent = path.length + '/' + totalDots;
+  stageValEl.textContent = stage + 1;
+}
+
+function startGame() {
+  document.getElementById('startOv').style.display = 'none';
+  stage = 0;
+  initStage();
+  if (winAnimFrame) { cancelAnimationFrame(winAnimFrame); winAnimFrame = null; }
+  loop();
+}
+
+function nextStage() {
+  document.getElementById('stageOv').style.display = 'none';
+  stage++;
+  if (stage >= STAGES.length) {
+    document.getElementById('winMsg').textContent = `You traced all ${STAGES.length} stages!`;
+    document.getElementById('winOv').style.display = 'flex';
+    return;
+  }
+  initStage();
+}
+
+function restartAll() {
+  document.getElementById('winOv').style.display = 'none';
+  stage = 0;
+  initStage();
+}
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  const s = STAGES[stage];
+  visited = Array.from({ length: s.rows }, () => Array(s.cols).fill(false));
+  path = [];
+  dragging = false;
+  flashParticles = [];
+  updateHUD();
+  msgEl.textContent = 'Path reset — try again!';
+});
+
+function getCanvasPos(e) {
+  const rect = cvs.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+}
+
+function handleStart(e) {
+  e.preventDefault();
+  const { x, y } = getCanvasPos(e);
+  const dot = nearestDot(x, y);
+  if (!dot) return;
+  // Reset and start fresh path from this dot
+  const s = STAGES[stage];
+  visited = Array.from({ length: s.rows }, () => Array(s.cols).fill(false));
+  path = [];
+  flashParticles = [];
+  path.push(dot);
+  visited[dot.r][dot.c] = true;
+  dragging = true;
+  updateHUD();
+  msgEl.textContent = 'Keep going…';
+}
+
+function handleMove(e) {
+  e.preventDefault();
+  if (!dragging) return;
+  const { x, y } = getCanvasPos(e);
+  const dot = nearestDot(x, y);
+  if (!dot) return;
+  const last = path[path.length - 1];
+  if (dot.r === last.r && dot.c === last.c) return;
+
+  // Backtrack: if touching second-to-last dot, undo last step
+  if (path.length >= 2) {
+    const prev = path[path.length - 2];
+    if (dot.r === prev.r && dot.c === prev.c) {
+      visited[last.r][last.c] = false;
+      path.pop();
+      updateHUD();
+      return;
+    }
+  }
+
+  // Extend path
+  if (!visited[dot.r][dot.c] && isAdjacent(last, dot)) {
+    path.push(dot);
+    visited[dot.r][dot.c] = true;
+    spawnDotParticles(dot);
+    updateHUD();
+    if (path.length === totalDots) {
+      dragging = false;
+      setTimeout(handleWin, 200);
+    }
+  }
+}
+
+function handleEnd(e) {
+  dragging = false;
+}
+
+cvs.addEventListener('pointerdown', handleStart, { passive: false });
+cvs.addEventListener('pointermove', handleMove, { passive: false });
+cvs.addEventListener('pointerup', handleEnd, { passive: false });
+
+function handleWin() {
+  msgEl.textContent = '✅ All dots connected!';
+  document.getElementById('stageTitle').textContent = `Stage ${stage + 1} Clear!`;
+  document.getElementById('stageMsg').textContent =
+    stage + 1 < STAGES.length
+      ? `Up next: ${STAGES[stage + 1].label}`
+      : 'You finished the last stage!';
+  document.getElementById('stageOv').style.display = 'flex';
+}
+
+function spawnDotParticles(dot) {
+  const p = dotPos(dot.r, dot.c);
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
+    flashParticles.push({
+      x: p.x, y: p.y,
+      vx: Math.cos(angle) * (1.5 + Math.random() * 2),
+      vy: Math.sin(angle) * (1.5 + Math.random() * 2),
+      life: 1, r: 2 + Math.random() * 3,
+    });
+  }
+}
+
+// ── Draw ──────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const s = STAGES[stage];
+  const now = performance.now() / 1000;
+
+  // Draw grid lines (faint)
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  for (let r = 0; r < s.rows; r++) {
+    for (let c = 0; c < s.cols; c++) {
+      if (c < s.cols - 1) {
+        const a = dotPos(r, c), b = dotPos(r, c + 1);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      if (r < s.rows - 1) {
+        const a = dotPos(r, c), b = dotPos(r + 1, c);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+  }
+
+  // Draw path
+  if (path.length >= 2) {
+    ctx.save();
+    ctx.lineWidth = dotR * 0.9;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(96,165,250,0.3)';
+    ctx.shadowColor = '#60a5fa';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    const p0 = dotPos(path[0].r, path[0].c);
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 1; i < path.length; i++) {
+      const p = dotPos(path[i].r, path[i].c);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    // Bright inner line
+    ctx.lineWidth = dotR * 0.4;
+    ctx.strokeStyle = '#93c5fd';
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw dots
+  for (let r = 0; r < s.rows; r++) {
+    for (let c = 0; c < s.cols; c++) {
+      const { x, y } = dotPos(r, c);
+      const isVisited = visited[r][c];
+      const isLast = path.length > 0 && path[path.length - 1].r === r && path[path.length - 1].c === c;
+      const pulse = isLast ? (0.85 + 0.15 * Math.sin(now * 6)) : 1;
+
+      ctx.save();
+      if (isVisited) {
+        ctx.shadowColor = '#a78bfa';
+        ctx.shadowBlur = isLast ? 22 : 12;
+        ctx.fillStyle = isLast ? '#e9d5ff' : '#a78bfa';
+      } else {
+        ctx.shadowColor = '#3d3d6e';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = '#3d3d6e';
+      }
+      ctx.beginPath();
+      ctx.arc(x, y, dotR * pulse, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner shine
+      if (isVisited) {
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.beginPath();
+        ctx.arc(x - dotR * 0.28, y - dotR * 0.28, dotR * 0.28 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // Particles
+  for (let i = flashParticles.length - 1; i >= 0; i--) {
+    const p = flashParticles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.life -= 0.04;
+    if (p.life <= 0) { flashParticles.splice(i, 1); continue; }
+    ctx.save();
+    ctx.globalAlpha = p.life;
+    ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 8;
+    ctx.fillStyle = '#c4b5fd';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function loop() {
+  draw();
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', () => {
+  resize();
+  draw();
+});
+
+resize();
+</script>
+</body>
+</html>
