@@ -108,14 +108,38 @@
 'use strict';
 
 const STAGES = [
-  { rows: 3, cols: 3, label: '3 × 3 — Find the knot' },
-  { rows: 3, cols: 4, label: '3 × 4 — Getting longer' },
-  { rows: 4, cols: 4, label: '4 × 4 — Think ahead' },
-  { rows: 3, cols: 6, label: '3 × 6 — Wide path' },
-  { rows: 4, cols: 5, label: '4 × 5 — Mid challenge' },
-  { rows: 5, cols: 5, label: '5 × 5 — Advanced' },
-  { rows: 4, cols: 7, label: '4 × 7 — Marathon' },
-  { rows: 6, cols: 6, label: '6 × 6 — The Grand Knot' },
+  // Stage 1: 3×3 ring — center blocked, go around it
+  { rows: 3, cols: 3, blocked: [[1,1]],
+    label: '3 × 3 — Ring Puzzle',
+    hint: 'The center is gone — circle around it!' },
+  // Stage 2: 3×4 unique path — exactly one solution
+  { rows: 3, cols: 4, blocked: [[0,1],[2,2]], start: [0,0], end: [2,3],
+    label: '3 × 4 — Unique Path',
+    hint: 'There is only one way — find it!' },
+  // Stage 3: 4×4 one exact route
+  { rows: 4, cols: 4, blocked: [[1,1],[2,3]], start: [0,3], end: [3,3],
+    label: '4 × 4 — One Way Only',
+    hint: 'A single exact path exists' },
+  // Stage 4: 3×6 bridge the gap
+  { rows: 3, cols: 6, blocked: [[0,2],[0,3],[2,2],[2,3]],
+    label: '3 × 6 — Bridge the Gap',
+    hint: 'Four cells are missing — navigate around them' },
+  // Stage 5: 4×5 asymmetric holes
+  { rows: 4, cols: 5, blocked: [[0,4],[1,0],[3,4]],
+    label: '4 × 5 — Asymmetric',
+    hint: 'Three asymmetric holes break the pattern' },
+  // Stage 6: 5×5 tight turn — 3 valid paths
+  { rows: 5, cols: 5, blocked: [[1,3]], start: [0,1], end: [2,4],
+    label: '5 × 5 — Tight Turn',
+    hint: 'Only a few paths connect start to end' },
+  // Stage 7: 4×7 one exact path
+  { rows: 4, cols: 7, blocked: [[0,3],[3,3]], start: [0,0], end: [3,6],
+    label: '4 × 7 — The Exact Path',
+    hint: 'Only ONE path exists — can you find it?' },
+  // Stage 8: 6×6 grand finale
+  { rows: 6, cols: 6, blocked: [[1,2],[2,4],[4,1],[3,3]],
+    label: '6 × 6 — The Grand Knot',
+    hint: 'Four gaps, many possibilities — choose wisely' },
 ];
 
 const cvs = document.getElementById('cvs');
@@ -126,6 +150,7 @@ const msgEl = document.getElementById('msg');
 
 let stage = 0;
 let rows, cols, totalDots;
+let blockedSet = new Set();
 let visited, path;      // visited[r][c] bool; path = [{r,c}]
 let dragging = false;
 let PAD, CW, CH, dotR;
@@ -162,6 +187,7 @@ function nearestDot(px, py) {
   let best = null, bestD = Infinity;
   for (let r = 0; r < s.rows; r++) {
     for (let c = 0; c < s.cols; c++) {
+      if (blockedSet.has(r + ',' + c)) continue;
       const p = dotPos(r, c);
       const d = Math.hypot(p.x - px, p.y - py);
       if (d < bestD) { bestD = d; best = { r, c }; }
@@ -177,14 +203,19 @@ function isAdjacent(a, b) {
 function initStage() {
   const s = STAGES[stage];
   rows = s.rows; cols = s.cols;
-  totalDots = rows * cols;
+  blockedSet = new Set((s.blocked || []).map(([r,c]) => r + ',' + c));
+  totalDots = rows * cols - (s.blocked || []).length;
   visited = Array.from({ length: rows }, () => Array(cols).fill(false));
   path = [];
   dragging = false;
   flashParticles = [];
   resize();
   updateHUD();
-  msgEl.textContent = 'Tap any dot to start your path!';
+  if (s.start) {
+    msgEl.textContent = `Start from the 🟢 dot${s.end ? ' and reach the 🔴 dot' : ''}!`;
+  } else {
+    msgEl.textContent = s.hint || 'Tap any dot to start your path!';
+  }
   draw();
 }
 
@@ -225,7 +256,11 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   dragging = false;
   flashParticles = [];
   updateHUD();
-  msgEl.textContent = 'Path reset — try again!';
+  if (s.start) {
+    msgEl.textContent = `Start from the 🟢 dot${s.end ? ' and reach the 🔴 dot' : ''}!`;
+  } else {
+    msgEl.textContent = 'Path reset — try again!';
+  }
 });
 
 function getCanvasPos(e) {
@@ -242,8 +277,15 @@ function handleStart(e) {
   const { x, y } = getCanvasPos(e);
   const dot = nearestDot(x, y);
   if (!dot) return;
-  // Reset and start fresh path from this dot
+
   const s = STAGES[stage];
+  // Enforce forced start dot
+  if (s.start && (dot.r !== s.start[0] || dot.c !== s.start[1])) {
+    msgEl.textContent = '⚠️ Start from the 🟢 dot!';
+    return;
+  }
+
+  // Reset and start fresh path from this dot
   visited = Array.from({ length: s.rows }, () => Array(s.cols).fill(false));
   path = [];
   flashParticles = [];
@@ -282,7 +324,13 @@ function handleMove(e) {
     updateHUD();
     if (path.length === totalDots) {
       dragging = false;
-      setTimeout(handleWin, 200);
+      const s = STAGES[stage];
+      const last = path[path.length - 1];
+      if (s.end && (last.r !== s.end[0] || last.c !== s.end[1])) {
+        msgEl.textContent = '❌ All dots visited, but wrong end! Reset and try again.';
+      } else {
+        setTimeout(handleWin, 200);
+      }
     }
   }
 }
@@ -324,16 +372,17 @@ function draw() {
   const s = STAGES[stage];
   const now = performance.now() / 1000;
 
-  // Draw grid lines (faint)
+  // Draw grid lines (faint), skipping blocked cells
   ctx.strokeStyle = 'rgba(255,255,255,0.04)';
   ctx.lineWidth = 1;
   for (let r = 0; r < s.rows; r++) {
     for (let c = 0; c < s.cols; c++) {
-      if (c < s.cols - 1) {
+      if (blockedSet.has(r + ',' + c)) continue;
+      if (c < s.cols - 1 && !blockedSet.has(r + ',' + (c+1))) {
         const a = dotPos(r, c), b = dotPos(r, c + 1);
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       }
-      if (r < s.rows - 1) {
+      if (r < s.rows - 1 && !blockedSet.has((r+1) + ',' + c)) {
         const a = dotPos(r, c), b = dotPos(r + 1, c);
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       }
@@ -368,9 +417,12 @@ function draw() {
   // Draw dots
   for (let r = 0; r < s.rows; r++) {
     for (let c = 0; c < s.cols; c++) {
+      if (blockedSet.has(r + ',' + c)) continue;
       const { x, y } = dotPos(r, c);
       const isVisited = visited[r][c];
       const isLast = path.length > 0 && path[path.length - 1].r === r && path[path.length - 1].c === c;
+      const isStart = s.start && s.start[0] === r && s.start[1] === c;
+      const isEnd = s.end && s.end[0] === r && s.end[1] === c;
       const pulse = isLast ? (0.85 + 0.15 * Math.sin(now * 6)) : 1;
 
       ctx.save();
@@ -378,6 +430,14 @@ function draw() {
         ctx.shadowColor = '#a78bfa';
         ctx.shadowBlur = isLast ? 22 : 12;
         ctx.fillStyle = isLast ? '#e9d5ff' : '#a78bfa';
+      } else if (isStart && !isVisited) {
+        ctx.shadowColor = '#34d399';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = '#34d399';
+      } else if (isEnd) {
+        ctx.shadowColor = '#fb923c';
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = '#fb923c';
       } else {
         ctx.shadowColor = '#3d3d6e';
         ctx.shadowBlur = 4;
@@ -388,7 +448,7 @@ function draw() {
       ctx.fill();
 
       // Inner shine
-      if (isVisited) {
+      if (isVisited || isStart || isEnd) {
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
         ctx.beginPath();
         ctx.arc(x - dotR * 0.28, y - dotR * 0.28, dotR * 0.28 * pulse, 0, Math.PI * 2);
