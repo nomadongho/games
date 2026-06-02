@@ -705,8 +705,8 @@
 
     function handleWin() {
       wins++;
-      renderBoard();
       selected = null;
+      renderBoard();
       winTextEl.textContent = DIFFICULTIES[currentDifficulty].label + ' 퍼즐도 멋지게 완성했어요!';
       setMessage('와! 퍼즐 완성!');
       winOverlayEl.classList.add('show');
