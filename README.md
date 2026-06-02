@@ -19,6 +19,7 @@ A collection of games by nomadongho. Each game is located under the `games/` fol
 | [games/Game10](games/Game10/) | Lumino 💡 | Place mirrors to route colored light beams to matching receivers |
 | [games/Game11](games/Game11/) | Swap Path 🏹 | Swap arrows on a grid to guide a walker through every star |
 | [games/Game12](games/Game12/) | Untangle 🕸️ | Drag nodes to eliminate all edge crossings in a tangled graph |
+| [games/Game19](games/Game19/) | Tiny Sudoku 🧸 | A child-friendly 4×4 sudoku that creates a fresh puzzle each time with selectable difficulty |
 
 ## How to Play
 

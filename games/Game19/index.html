@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>꼬마 스도쿠 4×4</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.9), rgba(255,255,255,0) 35%),
+        linear-gradient(180deg, #93c5fd 0%, #bfdbfe 30%, #fde68a 100%);
+      color: #1f2937;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      padding: 18px 12px 28px;
+    }
+    .app {
+      width: 100%;
+      max-width: 460px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .card {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.88);
+      border: 3px solid rgba(255,255,255,0.65);
+      border-radius: 28px;
+      box-shadow: 0 18px 40px rgba(30, 41, 59, 0.14);
+      padding: 18px;
+      backdrop-filter: blur(10px);
+    }
+    .hero {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hero-badge {
+      align-self: center;
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #7c3aed;
+      box-shadow: 0 8px 20px rgba(124, 58, 237, 0.12);
+    }
+    h1 {
+      font-size: clamp(2rem, 7vw, 2.7rem);
+      color: #7c3aed;
+      line-height: 1.1;
+    }
+    .hero p {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #475569;
+    }
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #7c3aed;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .difficulty-row,
+    .pad {
+      display: grid;
+      gap: 10px;
+    }
+    .difficulty-row {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .difficulty-btn,
+    .action-btn,
+    .pad-btn {
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    .difficulty-btn {
+      min-height: 68px;
+      padding: 10px 8px;
+      background: #eff6ff;
+      color: #475569;
+      border: 2px solid transparent;
+    }
+    .difficulty-btn strong {
+      display: block;
+      font-size: 1rem;
+      color: #1f2937;
+      margin-bottom: 4px;
+    }
+    .difficulty-btn span {
+      font-size: 0.8rem;
+      line-height: 1.3;
+      display: block;
+    }
+    .difficulty-btn.active {
+      background: linear-gradient(180deg, #ede9fe, #ddd6fe);
+      color: #5b21b6;
+      border-color: #a78bfa;
+      box-shadow: 0 10px 22px rgba(124, 58, 237, 0.18);
+      transform: translateY(-1px);
+    }
+    .action-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 12px;
+    }
+    .action-btn {
+      padding: 12px 18px;
+      background: linear-gradient(180deg, #f97316, #fb923c);
+      color: #fff;
+      box-shadow: 0 10px 20px rgba(249, 115, 22, 0.24);
+    }
+    .action-btn.secondary {
+      background: linear-gradient(180deg, #22c55e, #4ade80);
+      box-shadow: 0 10px 20px rgba(34, 197, 94, 0.22);
+    }
+    .status {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .status-chip {
+      text-align: center;
+      padding: 12px 8px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.82);
+      box-shadow: inset 0 0 0 2px rgba(148, 163, 184, 0.12);
+    }
+    .status-chip span {
+      display: block;
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-bottom: 2px;
+    }
+    .status-chip strong {
+      font-size: 1.2rem;
+      color: #1f2937;
+    }
+    .message {
+      text-align: center;
+      min-height: 28px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f766e;
+    }
+    .board-wrap {
+      display: flex;
+      justify-content: center;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      width: min(100%, 360px);
+      padding: 8px;
+      border-radius: 26px;
+      background: rgba(255,255,255,0.75);
+      box-shadow: inset 0 0 0 3px rgba(255,255,255,0.72);
+    }
+    .cell {
+      aspect-ratio: 1;
+      border: none;
+      border-radius: 20px;
+      font-size: clamp(1.7rem, 8vw, 2.5rem);
+      font-weight: 900;
+      cursor: pointer;
+      background: #ffffff;
+      color: #1f2937;
+      box-shadow: 0 8px 16px rgba(148, 163, 184, 0.18);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+      position: relative;
+    }
+    .cell.fixed {
+      cursor: default;
+      color: #7c3aed;
+    }
+    .cell.selected {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(99, 102, 241, 0.24);
+      outline: 3px solid #f59e0b;
+    }
+    .cell.related {
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22);
+    }
+    .cell.wrong {
+      animation: wobble 0.28s ease;
+      background: #fee2e2;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22);
+    }
+    .cell[data-box="0"] { background: #fff7ed; }
+    .cell[data-box="1"] { background: #eff6ff; }
+    .cell[data-box="2"] { background: #fef3c7; }
+    .cell[data-box="3"] { background: #ecfccb; }
+    .cell.fixed[data-value="1"], .pad-btn[data-value="1"] { color: #ef4444; }
+    .cell.fixed[data-value="2"], .pad-btn[data-value="2"] { color: #2563eb; }
+    .cell.fixed[data-value="3"], .pad-btn[data-value="3"] { color: #16a34a; }
+    .cell.fixed[data-value="4"], .pad-btn[data-value="4"] { color: #d97706; }
+    .cell.filled[data-value="1"] { color: #ef4444; }
+    .cell.filled[data-value="2"] { color: #2563eb; }
+    .cell.filled[data-value="3"] { color: #16a34a; }
+    .cell.filled[data-value="4"] { color: #d97706; }
+    .pad {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+    .pad-btn {
+      min-height: 58px;
+      background: #ffffff;
+      color: #1f2937;
+      font-size: 1.4rem;
+      box-shadow: 0 10px 18px rgba(148, 163, 184, 0.18);
+    }
+    .pad-btn.erase {
+      font-size: 1rem;
+      color: #475569;
+    }
+    .pad-btn:disabled {
+      opacity: 0.45;
+      cursor: default;
+      box-shadow: none;
+    }
+    .legend {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .overlay.show { display: flex; }
+    .overlay-card {
+      max-width: 360px;
+      width: 100%;
+      background: #fffaf0;
+      border-radius: 28px;
+      padding: 22px;
+      text-align: center;
+      box-shadow: 0 24px 50px rgba(15, 23, 42, 0.24);
+    }
+    .overlay-card .emoji {
+      font-size: 4rem;
+      margin-bottom: 10px;
+    }
+    .overlay-card h2 {
+      color: #7c3aed;
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+    .overlay-card p {
+      color: #475569;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    a.back-link {
+      font-size: 0.82rem;
+      color: #64748b;
+      text-decoration: none;
+    }
+    a.back-link:hover { color: #334155; }
+    @keyframes wobble {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    @media (hover: hover) {
+      .difficulty-btn:hover,
+      .action-btn:hover,
+      .pad-btn:hover,
+      .cell:not(.fixed):hover {
+        transform: translateY(-2px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="card hero">
+      <div class="hero-badge">🌈 꼬마 스도쿠 놀이터</div>
+      <h1>4×4 스도쿠</h1>
+      <p>같은 숫자 1~4가 가로, 세로, 작은 네모칸(2×2)에 한 번씩만 오면 성공이에요!</p>
+    </section>
+
+    <section class="card">
+      <div class="panel-title">난이도를 고르고 새 퍼즐을 만들어요</div>
+      <div class="difficulty-row" id="difficultyRow"></div>
+      <div class="action-row">
+        <button class="action-btn" id="newPuzzleBtn">🎲 새 퍼즐</button>
+        <button class="action-btn secondary" id="hintBtn">✨ 힌트</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="status">
+        <div class="status-chip">
+          <span>난이도</span>
+          <strong id="difficultyLabel">아주 쉬움</strong>
+        </div>
+        <div class="status-chip">
+          <span>남은 칸</span>
+          <strong id="leftCount">0</strong>
+        </div>
+        <div class="status-chip">
+          <span>성공</span>
+          <strong id="winCount">0</strong>
+        </div>
+      </div>
+      <div class="message" id="message">빈 칸을 누르고 숫자를 골라보세요!</div>
+      <div class="board-wrap">
+        <div class="board" id="board" aria-label="4x4 sudoku board"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="panel-title">숫자 버튼</div>
+      <div class="pad" id="pad">
+        <button class="pad-btn" data-value="1">1</button>
+        <button class="pad-btn" data-value="2">2</button>
+        <button class="pad-btn" data-value="3">3</button>
+        <button class="pad-btn" data-value="4">4</button>
+        <button class="pad-btn erase" data-value="0">지우기</button>
+      </div>
+      <p class="legend">틀린 숫자는 바로 알려줘요. 힌트 버튼을 누르면 한 칸을 반짝이며 채워줘요.</p>
+    </section>
+
+    <a class="back-link" href="../../index.html">← 게임 목록으로 돌아가기</a>
+  </div>
+
+  <div class="overlay" id="winOverlay">
+    <div class="overlay-card">
+      <div class="emoji">🎉</div>
+      <h2>정답!</h2>
+      <p id="winText">멋지게 퍼즐을 완성했어요!</p>
+      <button class="action-btn" id="playAgainBtn">다시 만들기</button>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const SIZE = 4;
+    const BOX = 2;
+    const NUMBERS = [1, 2, 3, 4];
+    const DIFFICULTIES = {
+      easy: { label: '아주 쉬움', hint: '숫자가 많이 보여요', clues: 12 },
+      medium: { label: '쉬움', hint: '조금 더 생각해요', clues: 10 },
+      hard: { label: '보통', hint: '빈 칸이 더 많아요', clues: 8 },
+    };
+
+    const boardEl = document.getElementById('board');
+    const difficultyRowEl = document.getElementById('difficultyRow');
+    const difficultyLabelEl = document.getElementById('difficultyLabel');
+    const leftCountEl = document.getElementById('leftCount');
+    const winCountEl = document.getElementById('winCount');
+    const messageEl = document.getElementById('message');
+    const winOverlayEl = document.getElementById('winOverlay');
+    const winTextEl = document.getElementById('winText');
+
+    let currentDifficulty = 'easy';
+    let puzzle = [];
+    let solution = [];
+    let boardState = [];
+    let selected = null;
+    let wins = 0;
+    let cellButtons = [];
+
+    init();
+
+    function init() {
+      buildDifficultyButtons();
+      buildBoard();
+      buildPad();
+      document.getElementById('newPuzzleBtn').addEventListener('click', () => startNewPuzzle(false));
+      document.getElementById('hintBtn').addEventListener('click', useHint);
+      document.getElementById('playAgainBtn').addEventListener('click', () => {
+        winOverlayEl.classList.remove('show');
+        startNewPuzzle(false);
+      });
+      window.addEventListener('keydown', onKeyDown);
+      startNewPuzzle(true);
+    }
+
+    function buildDifficultyButtons() {
+      difficultyRowEl.innerHTML = '';
+      Object.entries(DIFFICULTIES).forEach(([key, info]) => {
+        const btn = document.createElement('button');
+        btn.className = 'difficulty-btn';
+        btn.type = 'button';
+        btn.dataset.level = key;
+        btn.innerHTML = '<strong>' + info.label + '</strong><span>' + info.hint + '</span>';
+        btn.addEventListener('click', () => {
+          currentDifficulty = key;
+          updateDifficultyButtons();
+          startNewPuzzle(true);
+        });
+        difficultyRowEl.appendChild(btn);
+      });
+      updateDifficultyButtons();
+    }
+
+    function updateDifficultyButtons() {
+      difficultyLabelEl.textContent = DIFFICULTIES[currentDifficulty].label;
+      difficultyRowEl.querySelectorAll('.difficulty-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.level === currentDifficulty);
+      });
+    }
+
+    function buildBoard() {
+      boardEl.innerHTML = '';
+      cellButtons = [];
+      for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'cell';
+          btn.dataset.row = row;
+          btn.dataset.col = col;
+          btn.dataset.box = Math.floor(row / BOX) * BOX + Math.floor(col / BOX);
+          btn.addEventListener('click', () => selectCell(row, col));
+          boardEl.appendChild(btn);
+          cellButtons.push(btn);
+        }
+      }
+    }
+
+    function buildPad() {
+      document.querySelectorAll('.pad-btn').forEach((btn) => {
+        btn.addEventListener('click', () => applyValue(Number(btn.dataset.value)));
+      });
+    }
+
+    function startNewPuzzle(fromDifficultyChange) {
+      const generated = generatePuzzle(DIFFICULTIES[currentDifficulty].clues);
+      puzzle = generated.puzzle;
+      solution = generated.solution;
+      boardState = puzzle.map((row) => row.slice());
+      selected = null;
+      winOverlayEl.classList.remove('show');
+      renderBoard();
+      setMessage(fromDifficultyChange ? '난이도에 맞는 새 퍼즐이 나왔어요!' : '새 퍼즐을 만들었어요. 시작해볼까요?');
+    }
+
+    function generatePuzzle(clues) {
+      const solved = createSolvedBoard();
+      const puzzleBoard = solved.map((row) => row.slice());
+      const positions = shuffle(makeAllPositions());
+      const rowCounts = Array(SIZE).fill(SIZE);
+      const colCounts = Array(SIZE).fill(SIZE);
+      const targetRemovals = SIZE * SIZE - clues;
+      let removed = 0;
+
+      for (const [row, col] of positions) {
+        if (removed >= targetRemovals) break;
+        if (rowCounts[row] <= 1 || colCounts[col] <= 1) continue;
+        const saved = puzzleBoard[row][col];
+        puzzleBoard[row][col] = 0;
+        if (countSolutions(puzzleBoard, 2) !== 1) {
+          puzzleBoard[row][col] = saved;
+          continue;
+        }
+        rowCounts[row]--;
+        colCounts[col]--;
+        removed++;
+      }
+
+      return { puzzle: puzzleBoard, solution: solved };
+    }
+
+    function createSolvedBoard() {
+      let board = [
+        [1, 2, 3, 4],
+        [3, 4, 1, 2],
+        [2, 1, 4, 3],
+        [4, 3, 2, 1],
+      ];
+
+      const numberMap = shuffle(NUMBERS.slice());
+      board = board.map((row) => row.map((value) => numberMap[value - 1]));
+      board = remapRows(board);
+      board = remapColumns(board);
+      return board;
+    }
+
+    function remapRows(board) {
+      const bandOrder = shuffle([0, 1]);
+      const rows = [];
+      bandOrder.forEach((band) => {
+        const pair = shuffle([0, 1]).map((offset) => board[band * BOX + offset]);
+        rows.push(...pair);
+      });
+      return rows.map((row) => row.slice());
+    }
+
+    function remapColumns(board) {
+      const stackOrder = shuffle([0, 1]);
+      const colIndices = [];
+      stackOrder.forEach((stack) => {
+        const pair = shuffle([0, 1]).map((offset) => stack * BOX + offset);
+        colIndices.push(...pair);
+      });
+      return board.map((row) => colIndices.map((index) => row[index]));
+    }
+
+    function countSolutions(board, limit) {
+      const work = board.map((row) => row.slice());
+      let count = 0;
+
+      function solve() {
+        if (count >= limit) return;
+        const empty = findBestEmpty(work);
+        if (!empty) {
+          count++;
+          return;
+        }
+
+        const candidates = getCandidates(work, empty.row, empty.col);
+        for (const value of candidates) {
+          work[empty.row][empty.col] = value;
+          solve();
+          work[empty.row][empty.col] = 0;
+          if (count >= limit) return;
+        }
+      }
+
+      solve();
+      return count;
+    }
+
+    function findBestEmpty(board) {
+      let best = null;
+      let smallest = Infinity;
+      for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+          if (board[row][col] !== 0) continue;
+          const candidates = getCandidates(board, row, col);
+          if (!candidates.length) return { row, col };
+          if (candidates.length < smallest) {
+            smallest = candidates.length;
+            best = { row, col };
+          }
+        }
+      }
+      return best;
+    }
+
+    function getCandidates(board, row, col) {
+      return shuffle(NUMBERS.filter((value) => isAllowed(board, row, col, value)));
+    }
+
+    function isAllowed(board, row, col, value) {
+      for (let index = 0; index < SIZE; index++) {
+        if (board[row][index] === value || board[index][col] === value) return false;
+      }
+      const startRow = Math.floor(row / BOX) * BOX;
+      const startCol = Math.floor(col / BOX) * BOX;
+      for (let r = startRow; r < startRow + BOX; r++) {
+        for (let c = startCol; c < startCol + BOX; c++) {
+          if (board[r][c] === value) return false;
+        }
+      }
+      return true;
+    }
+
+    function makeAllPositions() {
+      const positions = [];
+      for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+          positions.push([row, col]);
+        }
+      }
+      return positions;
+    }
+
+    function shuffle(items) {
+      for (let index = items.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [items[index], items[swapIndex]] = [items[swapIndex], items[index]];
+      }
+      return items;
+    }
+
+    function renderBoard() {
+      let empties = 0;
+      for (const btn of cellButtons) {
+        const row = Number(btn.dataset.row);
+        const col = Number(btn.dataset.col);
+        const value = boardState[row][col];
+        const given = puzzle[row][col] !== 0;
+        btn.textContent = value === 0 ? '' : String(value);
+        btn.dataset.value = value === 0 ? '' : String(value);
+        btn.classList.toggle('fixed', given);
+        btn.classList.toggle('filled', !given && value !== 0);
+        btn.classList.toggle('selected', !!selected && selected.row === row && selected.col === col);
+        btn.classList.toggle('related', !!selected && isRelatedCell(selected.row, selected.col, row, col) && !(selected.row === row && selected.col === col));
+        btn.disabled = false;
+        btn.setAttribute('aria-label', buildCellLabel(row, col, value, given));
+        if (!value) empties++;
+      }
+      leftCountEl.textContent = String(empties);
+      winCountEl.textContent = String(wins);
+      updatePadState();
+    }
+
+    function buildCellLabel(row, col, value, given) {
+      const position = (row + 1) + '행 ' + (col + 1) + '열';
+      if (given) return position + ' 고정 숫자 ' + value;
+      if (!value) return position + ' 빈 칸';
+      return position + ' 내가 넣은 숫자 ' + value;
+    }
+
+    function isRelatedCell(sourceRow, sourceCol, row, col) {
+      return sourceRow === row ||
+        sourceCol === col ||
+        (Math.floor(sourceRow / BOX) === Math.floor(row / BOX) && Math.floor(sourceCol / BOX) === Math.floor(col / BOX));
+    }
+
+    function selectCell(row, col) {
+      if (puzzle[row][col] !== 0) {
+        setMessage('보라색 숫자는 처음부터 있는 숫자예요.');
+        return;
+      }
+      selected = { row, col };
+      renderBoard();
+      setMessage((row + 1) + '행 ' + (col + 1) + '열을 골랐어요.');
+    }
+
+    function applyValue(value) {
+      if (!selected) {
+        setMessage('먼저 빈 칸을 눌러주세요!');
+        return;
+      }
+      const { row, col } = selected;
+      if (puzzle[row][col] !== 0) return;
+
+      if (value === 0) {
+        boardState[row][col] = 0;
+        renderBoard();
+        setMessage('칸을 깨끗하게 지웠어요.');
+        return;
+      }
+
+      if (solution[row][col] !== value) {
+        flashWrongCell(row, col);
+        setMessage('앗, 다른 숫자예요. 다시 골라볼까요?');
+        return;
+      }
+
+      boardState[row][col] = value;
+      renderBoard();
+      setMessage('좋아요! 딱 맞았어요.');
+      if (isSolved()) {
+        handleWin();
+      }
+    }
+
+    function flashWrongCell(row, col) {
+      const btn = findButton(row, col);
+      if (!btn) return;
+      btn.classList.add('wrong');
+      setTimeout(() => btn.classList.remove('wrong'), 280);
+    }
+
+    function findButton(row, col) {
+      return cellButtons.find((btn) => Number(btn.dataset.row) === row && Number(btn.dataset.col) === col);
+    }
+
+    function updatePadState() {
+      const disabled = !selected;
+      document.querySelectorAll('.pad-btn').forEach((btn) => {
+        btn.disabled = disabled;
+      });
+    }
+
+    function isSolved() {
+      for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+          if (boardState[row][col] !== solution[row][col]) return false;
+        }
+      }
+      return true;
+    }
+
+    function handleWin() {
+      wins++;
+      renderBoard();
+      selected = null;
+      winTextEl.textContent = DIFFICULTIES[currentDifficulty].label + ' 퍼즐도 멋지게 완성했어요!';
+      setMessage('와! 퍼즐 완성!');
+      winOverlayEl.classList.add('show');
+    }
+
+    function useHint() {
+      const empties = [];
+      for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+          if (boardState[row][col] === 0) empties.push({ row, col });
+        }
+      }
+      if (!empties.length) {
+        setMessage('이미 다 채웠어요!');
+        return;
+      }
+      const pick = empties[Math.floor(Math.random() * empties.length)];
+      selected = pick;
+      boardState[pick.row][pick.col] = solution[pick.row][pick.col];
+      renderBoard();
+      setMessage('힌트가 반짝! 한 칸을 채워줬어요.');
+      const btn = findButton(pick.row, pick.col);
+      if (btn) {
+        btn.classList.add('selected');
+        setTimeout(() => {
+          if (selected && selected.row === pick.row && selected.col === pick.col) {
+            renderBoard();
+          }
+        }, 450);
+      }
+      if (isSolved()) {
+        handleWin();
+      }
+    }
+
+    function onKeyDown(event) {
+      if (event.key >= '1' && event.key <= '4') {
+        applyValue(Number(event.key));
+      } else if (event.key === 'Backspace' || event.key === 'Delete' || event.key === '0') {
+        applyValue(0);
+      }
+    }
+
+    function setMessage(text) {
+      messageEl.textContent = text;
+    }
+  </script>
+</body>
+</html>
